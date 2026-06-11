@@ -3919,4 +3919,9 @@ git commit -m "test(engine): add 200k-round simulation proof; document engine co
 - Engine modules importable with zero Vue/Nuxt dependencies (verify: `grep -r "from 'vue'\|from '#app'\|defineNuxt" app/utils/engine/` returns nothing).
 - Plans 2 (game UI) and 3 (training surfaces + E2E + deploy) are written as separate documents after this plan lands, grounded in the real engine API.
 
+## Plan 2–3 inputs from the final branch review (carry forward)
+
+- **Plan 2 (UI/store):** UI copy MUST label `houseEdge()` as a model estimate (calibration erratum). Event-name mapping to document: spec's `dealer-announces`/`count-changed` ⇒ engine `announce`/`count-visible-card`; `bot-quip` is synthesized at the UI layer. Consider additive `hole-revealed` event. Expose `discardCount()` on Shoe for the visibly-filling tray. Rules editor must not advertise `dealerPeek:false` as true ENHC (engine still deals/uses a hole card). Side-bet stakes placed while that bet is off in rules are silently ignored — UI must prevent (or engine later throws).
+- **Plan 3 (training):** add Fab 4 surrender deviations to `counting.ts` (spec §4.8 promises them; LS presets make them relevant). Add computed side-bet house edges to `sideBets.ts` (spec §4.9) for the analysis ledger and learn-page truth tables. Consider an `insuranceDeviation(tc)` helper so the advisor needn't fish `ILLUSTRIOUS_18[0]`. Consider multi-seed simulation variant in CI. `fiveCard21Pays2to1` needs test coverage incl. MA §16 precedence vs dealer comparison. Extract the triplicated `doubleOn` range predicate (hand.ts / basicStrategy.ts ×2) into one helper.
+
 
