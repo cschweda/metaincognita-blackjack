@@ -55,6 +55,7 @@ export class Shoe {
 
   /** MA §15(g): insufficient cards mid-round → shuffle the discard rack, burn, complete the round. */
   private reshuffleMidRound(): void {
+    if (this.rack.length === 0) throw new Error('Shoe exhausted with an empty discard rack — engine must discard before drawing this deep')
     this.cards = shuffle(this.rack.splice(0), this.rng)
     this.burnOne()
     this.reached = true // fresh shoe after this round regardless of cut position

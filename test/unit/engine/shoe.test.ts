@@ -62,4 +62,10 @@ describe('Shoe', () => {
     const shoe = makeShoe(6)
     expect(shoe.decksRemaining()).toBeCloseTo(311 / 52, 5)
   })
+
+  it('throws when drawn past empty with an empty discard rack', () => {
+    const shoe = makeShoe(1, 0.9)
+    for (let i = 0; i < 51; i++) shoe.draw() // 52 - 1 burned
+    expect(() => shoe.draw()).toThrow(/empty discard rack/)
+  })
 })
