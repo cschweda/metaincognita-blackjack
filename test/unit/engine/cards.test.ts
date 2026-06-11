@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mulberry32 } from '../../../app/utils/engine/rng'
 import {
-  SUITS, buildDeck, buildShoeCards, shuffle, pointValue, bucketOf, displayCard
+  buildDeck, buildShoeCards, shuffle, pointValue, bucketOf, displayCard
 } from '../../../app/utils/engine/cards'
 import type { Card } from '../../../app/utils/engine/cards'
 
@@ -11,7 +11,7 @@ describe('buildDeck', () => {
     expect(deck).toHaveLength(52)
     const keys = new Set(deck.map(c => `${c.rank}-${c.suit}`))
     expect(keys.size).toBe(52)
-    expect(new Set(deck.map(c => c.suit))).toEqual(new Set(SUITS))
+    expect(new Set(deck.map(c => c.suit))).toEqual(new Set(['hearts', 'diamonds', 'clubs', 'spades']))
     expect(Math.min(...deck.map(c => c.rank))).toBe(2)
     expect(Math.max(...deck.map(c => c.rank))).toBe(14)
   })
@@ -65,5 +65,8 @@ describe('displayCard', () => {
   it('renders rank + suit symbol', () => {
     expect(displayCard({ rank: 14, suit: 'spades' })).toBe('A♠')
     expect(displayCard({ rank: 10, suit: 'hearts' })).toBe('10♥')
+    expect(displayCard({ rank: 11, suit: 'diamonds' })).toBe('J♦')
+    expect(displayCard({ rank: 12, suit: 'clubs' })).toBe('Q♣')
+    expect(displayCard({ rank: 13, suit: 'hearts' })).toBe('K♥')
   })
 })

@@ -7,16 +7,16 @@ export interface Card {
   suit: Suit
 }
 
-export const SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
+export const SUITS: readonly Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
 
-export const SUIT_SYMBOLS: Record<Suit, string> = {
+export const SUIT_SYMBOLS: Readonly<Record<Suit, string>> = {
   hearts: '♥',
   diamonds: '♦',
   clubs: '♣',
   spades: '♠'
 }
 
-export const RANK_DISPLAY: Record<number, string> = {
+export const RANK_DISPLAY: Readonly<Record<number, string>> = {
   2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8',
   9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A'
 }
