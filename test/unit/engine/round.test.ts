@@ -185,3 +185,44 @@ describe('BlackjackGame — events', () => {
     expect(seen.length).toBeGreaterThanOrEqual(4)
   })
 })
+
+describe('BlackjackGame — review fixes', () => {
+  it('even money and insurance are mutually exclusive and revocable (MA §7(c))', () => {
+    const g = game([c(14), c(14, 'hearts'), c(13), c(13, 'clubs')]) // hero BJ vs dealer A,K
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.insuranceDecision(0, 'even-money')
+    g.insuranceDecision(0, 500) // switching to insurance revokes even money
+    expect(g.spots[0]!.tookEvenMoney).toBe(false)
+    expect(g.spots[0]!.insuranceBet).toBe(500)
+    g.insuranceDecision(0, 'even-money') // switching back clears the insurance bet
+    expect(g.spots[0]!.tookEvenMoney).toBe(true)
+    expect(g.spots[0]!.insuranceBet).toBeNull()
+    g.insuranceDecision(0, null) // declining clears both
+    expect(g.spots[0]!.tookEvenMoney).toBe(false)
+    expect(g.spots[0]!.insuranceBet).toBeNull()
+    g.finishInsurance()
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(0) // BJ vs dealer BJ: standoff, no even money taken
+  })
+
+  it('busting emits a hand-settled event', () => {
+    const settled: Array<{ outcome: string, net: number }> = []
+    const g = game([c(10), c(7, 'hearts'), c(6), c(10, 'clubs'), c(10, 'diamonds')])
+    g.on((e) => {
+      if (e.type === 'hand-settled') settled.push({ outcome: e.outcome, net: e.net })
+    })
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit') // 16 + 10 = bust
+    expect(settled).toEqual([{ outcome: 'lose', net: -1000 }])
+  })
+
+  it('surrendering emits a hand-settled event', () => {
+    const settled: string[] = []
+    const g = game([c(10), c(13, 'hearts'), c(6), c(9, 'clubs')])
+    g.on((e) => {
+      if (e.type === 'hand-settled') settled.push(e.outcome)
+    })
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'surrender')
+    expect(settled).toEqual(['surrender'])
+  })
+})

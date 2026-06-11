@@ -197,16 +197,19 @@ export class BlackjackGame {
         throw new IllegalActionError('even money requires a player blackjack and 3:2 rules (MA §7(c)-(d))')
       }
       spot.tookEvenMoney = true
+      spot.insuranceBet = null
       return
     }
     if (decision === null) {
       spot.insuranceBet = null
+      spot.tookEvenMoney = false
       return
     }
     if (decision <= 0 || decision > Math.ceil(hand.bet / 2)) {
       throw new IllegalActionError('insurance is capped at half the wager (MA §9(b))')
     }
     spot.insuranceBet = decision
+    spot.tookEvenMoney = false
   }
 
   finishInsurance(): void {
@@ -343,6 +346,7 @@ export class BlackjackGame {
         hand.netResult = -Math.ceil(hand.bet / 2)
         hand.outcome = 'surrender'
         this.emit({ type: 'announce', text: 'Surrender — half the wager returned' })
+        this.emit({ type: 'hand-settled', spotId, handIndex: spot.activeHandIndex, outcome: 'surrender', net: hand.netResult })
         this.finishHand(spot, hand)
         break
       }
@@ -376,6 +380,7 @@ export class BlackjackGame {
       hand.netResult = -hand.bet
       hand.outcome = 'lose'
       this.emit({ type: 'announce', text: 'Bust' })
+      this.emit({ type: 'hand-settled', spotId: spot.spotId, handIndex: spot.hands.indexOf(hand), outcome: 'lose', net: hand.netResult })
     }
     // move to the next unresolved hand at this spot, dealing its second card if it's a fresh split hand
     spot.activeHandIndex = spot.hands.findIndex(h => this.isPlayable(h))
