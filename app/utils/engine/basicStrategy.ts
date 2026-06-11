@@ -193,3 +193,176 @@ export function bestAction(state: TotalState, up: Bucket, rules: RuleSet): Recom
   }
   return { action, evs }
 }
+
+// ─── Part 3: Split EV, chart generation, house edge ───────────────────────────
+
+const splitMemo = new Map<string, number>()
+
+/** Absolute EV (in original-bet units, both hands counted) of splitting pairBucket vs up. */
+export function splitEV(pairBucket: Bucket, up: Bucket, rules: RuleSet, handsFormed = 2): number {
+  return 2 * postSplitHandEV(pairBucket, up, rules, handsFormed)
+}
+
+function postSplitHandEV(pairBucket: Bucket, up: Bucket, rules: RuleSet, handsFormed: number): number {
+  const key = `${pairBucket}|${up}|${handsFormed}|${rules.dealerHitsSoft17}|${rules.dealerPeek}|${rules.doubleAfterSplit}|${rules.doubleOn}|${rules.maxSplitHands}|${rules.resplitAces}`
+  const cached = splitMemo.get(key)
+  if (cached !== undefined) return cached
+  const d = distFor(up, rules)
+  const memo = new Map<string, number>()
+  let ev = 0
+  for (const b of BUCKETS) {
+    let v: number
+    const pairAgain = b === pairBucket
+    if (pairBucket === 11) {
+      // Split aces: one card, forced stand (MA §11(c)(2)); resplit only another ace if allowed
+      const [t] = stateAfter(11, true, b)
+      v = standEV(t, d)
+      if (pairAgain && rules.resplitAces && handsFormed < rules.maxSplitHands) {
+        v = Math.max(v, 2 * postSplitHandEV(11, up, rules, handsFormed + 1))
+      }
+    } else {
+      const [t, s] = stateAfter(pairBucket, false, b)
+      const standV = standEV(t, d)
+      v = t >= 21 ? standV : Math.max(standV, hitEV(t, s, d, memo))
+      if (t < 21 && rules.doubleAfterSplit) {
+        const inRange
+          = rules.doubleOn === 'any2'
+            || (rules.doubleOn === '9-11' && !s && t >= 9 && t <= 11)
+            || (rules.doubleOn === '10-11' && !s && (t === 10 || t === 11))
+        if (inRange) v = Math.max(v, doubleEV(t, s, d))
+      }
+      if (pairAgain && handsFormed < rules.maxSplitHands) {
+        v = Math.max(v, 2 * postSplitHandEV(pairBucket, up, rules, handsFormed + 1))
+      }
+    }
+    ev += PROB[b] * v
+  }
+  splitMemo.set(key, ev)
+  return ev
+}
+
+export interface PairState {
+  pair: Bucket
+  total: number
+  soft: boolean
+}
+
+/** bestAction extended with the split option for pair hands. */
+export function bestActionFull(state: PairState, up: Bucket, rules: RuleSet): Recommendation {
+  const base = bestAction({ total: state.total, soft: state.soft, twoCards: true, fromSplit: false }, up, rules)
+  const sEV = splitEV(state.pair, up, rules)
+  const evs: ActionEVs = { ...base.evs, split: sEV }
+  const baseBest = base.evs[base.action]!
+  if (sEV > baseBest) return { action: 'split', evs }
+  return { action: base.action, evs }
+}
+
+export type ChartCode = 'H' | 'S' | 'D' | 'Ds' | 'P' | 'Rh' | 'Rs' | 'Rp'
+
+export interface StrategyChart {
+  hard: Record<number, Record<Bucket, ChartCode>>
+  soft: Record<number, Record<Bucket, ChartCode>>
+  pairs: Record<Bucket, Record<Bucket, ChartCode>>
+}
+
+function codeFor(evs: ActionEVs, action: Recommendation['action']): ChartCode {
+  if (action === 'surrender') {
+    // composite: surrender, else best remaining
+    const rest: Array<[Recommendation['action'], number]> = [['stand', evs.stand], ['hit', evs.hit]]
+    if (evs.double !== undefined) rest.push(['double', evs.double])
+    if (evs.split !== undefined) rest.push(['split', evs.split])
+    rest.sort((a, b) => b[1] - a[1])
+    const fallback = rest[0]![0]
+    return fallback === 'stand' ? 'Rs' : fallback === 'split' ? 'Rp' : 'Rh'
+  }
+  if (action === 'double') return evs.stand >= evs.hit ? 'Ds' : 'D'
+  if (action === 'split') return 'P'
+  return action === 'stand' ? 'S' : 'H'
+}
+
+export function generateChart(rules: RuleSet): StrategyChart {
+  const chart: StrategyChart = { hard: {}, soft: {}, pairs: {} as StrategyChart['pairs'] }
+  for (let total = 5; total <= 20; total++) {
+    chart.hard[total] = {} as Record<Bucket, ChartCode>
+    for (const up of BUCKETS) {
+      const rec = bestAction({ total, soft: false, twoCards: true, fromSplit: false }, up, rules)
+      chart.hard[total]![up] = codeFor(rec.evs, rec.action)
+    }
+  }
+  for (let total = 13; total <= 20; total++) {
+    chart.soft[total] = {} as Record<Bucket, ChartCode>
+    for (const up of BUCKETS) {
+      const rec = bestAction({ total, soft: true, twoCards: true, fromSplit: false }, up, rules)
+      chart.soft[total]![up] = codeFor(rec.evs, rec.action)
+    }
+  }
+  for (const pair of BUCKETS) {
+    chart.pairs[pair] = {} as Record<Bucket, ChartCode>
+    const total = pair === 11 ? 12 : pair * 2
+    const soft = pair === 11
+    for (const up of BUCKETS) {
+      const rec = bestActionFull({ pair, total, soft }, up, rules)
+      chart.pairs[pair]![up] = codeFor(rec.evs, rec.action)
+    }
+  }
+  return chart
+}
+
+/** Overall house edge of perfect basic strategy (deck-aware deal layer; see Modeling Notes). */
+export function houseEdge(rules: RuleSet): number {
+  const n = rules.decks
+  const count: Record<Bucket, number> = {
+    2: 4 * n, 3: 4 * n, 4: 4 * n, 5: 4 * n, 6: 4 * n,
+    7: 4 * n, 8: 4 * n, 9: 4 * n, 10: 16 * n, 11: 4 * n
+  }
+  const total = 52 * n
+  let ev = 0
+  for (const b1 of BUCKETS) {
+    for (const b2 of BUCKETS) {
+      if (b2 < b1) continue
+      const pPlayer = b1 === b2
+        ? (count[b1] * (count[b1] - 1)) / (total * (total - 1))
+        : (2 * count[b1] * count[b2]) / (total * (total - 1))
+      if (pPlayer <= 0) continue
+      for (const up of BUCKETS) {
+        const upAvail = count[up] - (up === b1 ? 1 : 0) - (up === b2 ? 1 : 0)
+        if (upAvail <= 0) continue
+        const p = pPlayer * (upAvail / (total - 2))
+        ev += p * dealtHandEV(b1, b2, up, rules, count, total)
+      }
+    }
+  }
+  return -ev
+}
+
+function totalOf(b1: Bucket, b2: Bucket): { total: number, soft: boolean } {
+  const [t0, a0] = addCard(0, 0, b1)
+  const [t1, a1] = addCard(t0, a0, b2)
+  return { total: t1, soft: a1 > 0 }
+}
+
+function dealtHandEV(
+  b1: Bucket, b2: Bucket, up: Bucket, rules: RuleSet,
+  count: Record<Bucket, number>, totalCards: number
+): number {
+  const playerBJ = (b1 === 11 && b2 === 10) || (b1 === 10 && b2 === 11)
+  const holeNeeded: Bucket | null = up === 11 ? 10 : up === 10 ? 11 : null
+  let pDealerBJ = 0
+  if (holeNeeded !== null) {
+    const avail = count[holeNeeded]
+      - (holeNeeded === b1 ? 1 : 0) - (holeNeeded === b2 ? 1 : 0) - (holeNeeded === up ? 1 : 0)
+    pDealerBJ = Math.max(0, avail) / (totalCards - 3)
+  }
+  const bjPayLocal = rules.blackjackPayout === '3:2' ? 1.5 : 1.2
+  if (playerBJ) return (1 - pDealerBJ) * bjPayLocal // dealer BJ → standoff (MA §7(b))
+
+  const { total, soft } = totalOf(b1, b2)
+  const pair = b1 === b2
+  const rec = pair
+    ? bestActionFull({ pair: b1, total, soft }, up, rules)
+    : bestAction({ total, soft, twoCards: true, fromSplit: false }, up, rules)
+  const postEV = rec.evs[rec.action]!
+
+  if (!rules.dealerPeek) return postEV // unconditioned dist already charges dealer BJ
+  return pDealerBJ * -1 + (1 - pDealerBJ) * postEV
+}
