@@ -2340,7 +2340,11 @@ const KNOWN_MARGINAL = new Set<string>([
   // Sources: (1) Wizard of Odds, basic-strategy-hands Q&A — "In an infinite-deck blackjack
   // game you should hit A2 vs 5"; (2) direct EV computation during Task 10 execution.
   // Published 4-8 deck composition charts double; the delta (~0.007) is below model resolution.
-  'soft:13v5'
+  'soft:13v5',
+  // A4 v 4: same class — model hits (+0.05929) over double (+0.05843), margin 0.00086.
+  // Sources: (1) Wizard of Odds infinite-deck strategy table (A4 doubles v5-6 only);
+  // (2) independent EV re-derivation during the Task 11 review (matched engine to 1e-12).
+  'soft:15v4'
 ])
 
 // MA preset is 8D S17 DAS LS — identical total-dependent chart to 6D S17 DAS LS.
