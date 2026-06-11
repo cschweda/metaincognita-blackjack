@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: 'Public Sans', system-ui, sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
+}
+
+:root {
+  /* Casino-dark luxury theme (holdem tokens): emerald felt, walnut rail, gold/cream accents.
+     The felt stays dark emerald in both color modes. */
+  --felt-green: #0a5c36;
+  --felt-green-light: #0d7a48;
+  --felt-glow: rgba(16, 185, 100, 0.15);
+  --rail-walnut: #5c3a1e;
+  --rail-walnut-dark: #3d2713;
+
+  --card-red: #dc2626;
+  --card-black: #1a1a1a;
+
+  --accent-gold: #d4a847;
+  --accent-cream: #f5f0e1;
+
+  --chip-white: #f0f0f0;
+  --chip-red: #dc2626;
+  --chip-green: #16a34a;
+  --chip-black: #1a1a1a;
+  --chip-purple: #7c3aed;
+  --chip-orange: #ea580c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

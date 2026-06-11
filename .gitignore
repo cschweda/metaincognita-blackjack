@@ -5,3 +5,14 @@ dist
 .DS_Store
 .env
 coverage
+.nuxtrc
+.vscode/
+playwright-report/
+test-results/
+.data
+.nitro
+.cache
+logs
+*.log
+.env.*
+!.env.example
