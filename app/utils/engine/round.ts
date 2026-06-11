@@ -60,6 +60,7 @@ export type GameEvent
     | { type: 'peek-result', blackjack: boolean }
     | { type: 'hand-settled', spotId: number, handIndex: number, outcome: NonNullable<SettledHand['outcome']>, net: number }
     | { type: 'side-bet-settled', spotId: number, result: SideBetResult, net: number }
+    | { type: 'insurance-settled', spotId: number, net: number }
 
 export class BlackjackGame {
   phase: Phase = 'betting'
@@ -205,7 +206,7 @@ export class BlackjackGame {
       spot.tookEvenMoney = false
       return
     }
-    if (decision <= 0 || decision > Math.ceil(hand.bet / 2)) {
+    if (decision <= 0 || decision > Math.floor(hand.bet / 2)) {
       throw new IllegalActionError('insurance is capped at half the wager (MA §9(b))')
     }
     spot.insuranceBet = decision
@@ -245,6 +246,7 @@ export class BlackjackGame {
       for (const spot of this.spots) {
         if (spot.insuranceBet) {
           spot.insuranceNet = dealerBJ ? spot.insuranceBet * 2 : -spot.insuranceBet
+          this.emit({ type: 'insurance-settled', spotId: spot.spotId, net: spot.insuranceNet })
         }
       }
     }
@@ -252,11 +254,22 @@ export class BlackjackGame {
     if (dealerBJ) {
       this.revealHole()
       this.settleLuckyLadies(true) // the 1000:1 Q♥-pair tier needs dealer-BJ knowledge (MA §24(f))
+      for (const spot of this.spots) {
+        this.settleBusterForSpot(spot, true)
+      }
       this.settleAgainstDealerBlackjack()
       this.completeRound()
       return
     }
     this.startPlayerTurns()
+  }
+
+  private settleBusterForSpot(spot: SpotState, dealerHasBlackjack: boolean): void {
+    const stake = spot.sideBets.buster ?? 0
+    if (stake <= 0 || this.rules.sideBets.buster === 'off') return
+    if (spot.sideBetResults.some(r => r.name === 'Buster')) return // once-only guard
+    const result = evaluateBuster(this.dealerCards, dealerHasBlackjack, this.rules.sideBets.buster)
+    this.recordSideBet(spot, result, stake)
   }
 
   private settleLuckyLadies(dealerHasBlackjack: boolean): void {
@@ -446,11 +459,7 @@ export class BlackjackGame {
         this.emit({ type: 'hand-settled', spotId: spot.spotId, handIndex: i, outcome, net })
       })
 
-      const busterStake = spot.sideBets.buster ?? 0
-      if (busterStake > 0 && this.rules.sideBets.buster !== 'off') {
-        const result = evaluateBuster(this.dealerCards, isBlackjack(this.dealerCards, false), this.rules.sideBets.buster)
-        this.recordSideBet(spot, result, busterStake)
-      }
+      this.settleBusterForSpot(spot, false)
     }
     this.completeRound()
   }
