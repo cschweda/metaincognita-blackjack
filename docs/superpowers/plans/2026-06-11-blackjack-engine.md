@@ -1603,13 +1603,17 @@ describe('dealerDistribution — probability mass', () => {
 })
 
 describe('dealerDistribution — canonical S17 bust rates (±0.02)', () => {
+  // Published dealer-outcome tables are peek-conditioned (dealer blackjack excluded).
+  // Conditioning is a no-op for upcards 2-9; the ten and ace pins must condition explicitly —
+  // unconditioned, ~31% of the ace's mass is blackjack and its bust rate drops to ~0.115.
   const pins: Array<[Bucket, number]> = [
     [2, 0.354], [3, 0.374], [4, 0.400], [5, 0.428], [6, 0.424],
     [7, 0.262], [8, 0.245], [9, 0.230], [10, 0.212], [11, 0.170]
   ]
   for (const [up, expected] of pins) {
     it(`upcard ${up} busts ≈ ${expected}`, () => {
-      expect(Math.abs(dealerDistribution(up, S17, false).bust - expected)).toBeLessThan(0.02)
+      const conditioned = up >= 10
+      expect(Math.abs(dealerDistribution(up, S17, conditioned).bust - expected)).toBeLessThan(0.02)
     })
   }
 })
@@ -1743,7 +1747,7 @@ export function dealerDistribution(up: Bucket, rules: RuleSet, conditionNoBlackj
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:unit test/unit/engine/dealerDistribution.test.ts`
-Expected: PASS (19 tests). If a bust-rate pin misses by >0.02, the recursion is wrong (commonly: soft-17 stand logic or ace demotion) — debug the engine, do not widen the tolerance.
+Expected: PASS (16 tests). If a bust-rate pin misses by >0.02, the recursion is wrong (commonly: soft-17 stand logic or ace demotion) — debug the engine, do not widen the tolerance. (Plan erratum, found in execution: the ten/ace pins are peek-conditioned values — the pin loop conditions on `up >= 10` accordingly.)
 
 - [ ] **Step 5: Commit**
 
