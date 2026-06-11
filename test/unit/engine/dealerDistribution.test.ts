@@ -28,16 +28,17 @@ describe('dealerDistribution — probability mass', () => {
 })
 
 describe('dealerDistribution — canonical S17 bust rates (±0.02)', () => {
-  // Published dealer-outcome tables are peek-conditioned (dealer blackjack excluded).
-  // Conditioning is a no-op for upcards 2-9; the ten and ace pins must condition explicitly —
-  // unconditioned, ~31% of the ace's mass is blackjack and its bust rate drops to ~0.115.
+  // Pin provenance: upcards 2-9 are identical either way (conditioning is a no-op).
+  // The ten pin (0.212) is the published UNCONDITIONED value (engine: 0.2121).
+  // The ace pin (0.170) is the peek-CONDITIONED value (engine: 0.1665) — unconditioned,
+  // ~31% of the ace's mass is blackjack and its bust rate drops to ~0.115.
   const pins: Array<[Bucket, number]> = [
     [2, 0.354], [3, 0.374], [4, 0.400], [5, 0.428], [6, 0.424],
     [7, 0.262], [8, 0.245], [9, 0.230], [10, 0.212], [11, 0.170]
   ]
   for (const [up, expected] of pins) {
     it(`upcard ${up} busts ≈ ${expected}`, () => {
-      const conditioned = up >= 10
+      const conditioned = up === 11
       expect(Math.abs(dealerDistribution(up, S17, conditioned).bust - expected)).toBeLessThan(0.02)
     })
   }
