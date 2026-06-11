@@ -50,7 +50,7 @@ function freeze(rules: RuleSet): Readonly<RuleSet> {
   return Object.freeze(rules)
 }
 
-export const PRESETS: Record<string, Readonly<RuleSet>> = {
+export const PRESETS: Readonly<Record<string, Readonly<RuleSet>>> = Object.freeze({
   MA_205CMR: freeze({
     name: 'Massachusetts (205 CMR)',
     source: 'docs/Rules-Blackjack-10-08-2020.pdf',
@@ -177,7 +177,7 @@ export const PRESETS: Record<string, Readonly<RuleSet>> = {
     maxBet: 100000,
     sideBets: { ...ALL_SIDE_BETS }
   })
-}
+})
 
 export function cloneRules(rules: Readonly<RuleSet>): RuleSet {
   return { ...rules, sideBets: { ...rules.sideBets } }
