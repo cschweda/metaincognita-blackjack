@@ -82,3 +82,114 @@ export function dealerDistribution(up: Bucket, rules: RuleSet, conditionNoBlackj
   }
   return out
 }
+
+// ─── Part 2: Action EVs & bestAction ───────────────────────────────────────
+
+export interface TotalState {
+  total: number
+  soft: boolean
+  twoCards: boolean
+  fromSplit: boolean
+}
+
+export interface ActionEVs {
+  stand: number
+  hit: number
+  double?: number
+  surrender?: number
+  split?: number // filled by splitEV (Task 11) when the hand is a pair
+}
+
+function standEV(playerTotal: number, d: DealerDist): number {
+  if (playerTotal > 21) return -1
+  // Peek model: d.blackjack is 0 when conditioned. Unconditioned (no-peek custom games),
+  // the dealer BJ mass is a straight loss — ENHC full-loss emerges naturally for doubles too.
+  let ev = d.bust - d.blackjack
+  for (const t of [17, 18, 19, 20, 21] as const) {
+    ev += d[t] * (playerTotal > t ? 1 : playerTotal < t ? -1 : 0)
+  }
+  return ev
+}
+
+function stateAfter(total: number, soft: boolean, bucket: Bucket): [number, boolean] {
+  const aces = soft ? 1 : 0
+  const [t, a] = addCard(total, aces, bucket)
+  return [t, a > 0]
+}
+
+function hitEV(total: number, soft: boolean, d: DealerDist, memo: Map<string, number>): number {
+  const key = `${total}|${soft}`
+  const cached = memo.get(key)
+  if (cached !== undefined) return cached
+  let ev = 0
+  for (const b of BUCKETS) {
+    const [t, s] = stateAfter(total, soft, b)
+    if (t > 21) {
+      ev += PROB[b] * -1
+    } else {
+      const standHere = standEV(t, d)
+      const hitAgain = t === 21 ? -Infinity : hitEV(t, s, d, memo)
+      ev += PROB[b] * Math.max(standHere, hitAgain)
+    }
+  }
+  memo.set(key, ev)
+  return ev
+}
+
+function doubleEV(total: number, soft: boolean, d: DealerDist): number {
+  let ev = 0
+  for (const b of BUCKETS) {
+    const [t] = stateAfter(total, soft, b)
+    ev += PROB[b] * 2 * standEV(t, d)
+  }
+  return ev
+}
+
+const distCache = new Map<string, DealerDist>()
+
+export function distFor(up: Bucket, rules: RuleSet): DealerDist {
+  const key = `${up}|${rules.dealerHitsSoft17}|${rules.dealerPeek}`
+  const hit = distCache.get(key)
+  if (hit) return hit
+  const d = dealerDistribution(up, rules, rules.dealerPeek)
+  distCache.set(key, d)
+  return d
+}
+
+/** EVs (per unit of the original bet) for the non-split actions available in this state. */
+export function actionEVs(state: TotalState, up: Bucket, rules: RuleSet): ActionEVs {
+  const d = distFor(up, rules)
+  const memo = new Map<string, number>()
+  const evs: ActionEVs = {
+    stand: standEV(state.total, d),
+    hit: hitEV(state.total, state.soft, d, memo)
+  }
+  if (state.twoCards && (!state.fromSplit || rules.doubleAfterSplit)) {
+    const inRange
+      = rules.doubleOn === 'any2'
+        || (rules.doubleOn === '9-11' && !state.soft && state.total >= 9 && state.total <= 11)
+        || (rules.doubleOn === '10-11' && !state.soft && (state.total === 10 || state.total === 11))
+    if (inRange) evs.double = doubleEV(state.total, state.soft, d)
+  }
+  if (state.twoCards && !state.fromSplit && rules.surrender === 'late') evs.surrender = -0.5
+  return evs
+}
+
+export interface Recommendation {
+  action: 'hit' | 'stand' | 'double' | 'surrender' | 'split'
+  evs: ActionEVs
+}
+
+export function bestAction(state: TotalState, up: Bucket, rules: RuleSet): Recommendation {
+  const evs = actionEVs(state, up, rules)
+  let action: Recommendation['action'] = evs.stand >= evs.hit ? 'stand' : 'hit'
+  let best = Math.max(evs.stand, evs.hit)
+  if (evs.double !== undefined && evs.double > best) {
+    action = 'double'
+    best = evs.double // track running best for subsequent comparisons
+  }
+  if (evs.surrender !== undefined && evs.surrender > best) {
+    action = 'surrender'
+  }
+  return { action, evs }
+}

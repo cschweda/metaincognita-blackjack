@@ -1807,7 +1807,7 @@ describe('bestAction — famous canonical cells (6D S17 DAS)', () => {
     [hard(17), 11, 'stand'],
     [soft(18), 9, 'hit'], // A7 v 9 hits
     [soft(18), 6, 'double'], // Ds cell
-    [soft(13), 5, 'double'], // A2 v 5
+    [soft(17), 3, 'double'], // A6 v 3 (erratum: was A2 v 5 — composition-marginal, model hits; see KNOWN_MARGINAL)
     [soft(19), 6, 'stand'] // A8 v 6 stands under S17
   ]
   for (const [state, up, expected] of cases) {
@@ -2329,8 +2329,14 @@ const PAIRS_S17_DAS: Record<number, string> = {
 }
 
 // Cells confirmed composition-marginal under the fixed-composition model.
-// Entries require a comment citing two published sources. Keep EMPTY until proven.
-const KNOWN_MARGINAL = new Set<string>()
+// Entries require a comment citing two published sources.
+const KNOWN_MARGINAL = new Set<string>([
+  // A2 v 5: fixed-composition/infinite-deck model hits (+0.1334) over double (+0.1260).
+  // Sources: (1) Wizard of Odds, basic-strategy-hands Q&A — "In an infinite-deck blackjack
+  // game you should hit A2 vs 5"; (2) direct EV computation during Task 10 execution.
+  // Published 4-8 deck composition charts double; the delta (~0.007) is below model resolution.
+  'soft:13v5'
+])
 
 // MA preset is 8D S17 DAS LS — identical total-dependent chart to 6D S17 DAS LS.
 const RULES_S17 = PRESETS.MA_205CMR!
