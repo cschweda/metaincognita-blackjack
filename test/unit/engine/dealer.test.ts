@@ -42,7 +42,7 @@ describe('dealerPlay', () => {
   })
 
   it('H17 dealer hits soft 17 and can bust', () => {
-    const stream = [c(5), c(10)] // A6 → A65 = soft 12? A(11)+6+5 = 22 → hard 12; +10 = 22 bust
+    const stream = [c(5), c(10)] // A-6 soft 17 → draws 5 → hard 12 → draws 10 → 22 bust
     const final = dealerPlay([c(14), c(6)], () => stream.shift()!, H17)
     expect(handTotal(final).total).toBe(22)
   })

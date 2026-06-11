@@ -123,6 +123,7 @@ export function evaluateMatchTheDealer(player: [Card, Card], dealerUp: Card, dec
       [label, multiplier] = ['one-unsuited', pays.oneUnsuited]
     }
   }
+  if (multiplier === 0) label = 'none'
   return { name: 'Match the Dealer', win: multiplier > 0, payoutMultiplier: multiplier, label }
 }
 
@@ -154,6 +155,7 @@ export function evaluateBuster(
     return { name: 'Buster', win: false, payoutMultiplier: 0, label: 'none' }
   }
   const n = dealerCards.length
+  if (n < 3) return { name: 'Buster', win: false, payoutMultiplier: 0, label: 'none' }
   const key = n >= 8 ? '8+' : String(n)
   const multiplier = BUSTER_PAYS[table]![key]!
   return { name: 'Buster', win: true, payoutMultiplier: multiplier, label: `bust-${key}-cards` }

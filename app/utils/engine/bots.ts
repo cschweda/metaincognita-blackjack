@@ -116,8 +116,6 @@ export const PERSONAS: Persona[] = [
   }
 ]
 
-const personaById = new Map(PERSONAS.map(p => [p.id, p]))
-
 export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, dealerUp: Card, rules: RuleSet): Action {
   const legal = legalActions(hand, handCount, rules)
   if (legal.length === 0) return 'stand'
@@ -137,8 +135,5 @@ export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, deal
       return book === 'surrender' ? 'hit' : book // surrender is for cowards
     }
   }
-  // Authorized style fix: replaced unreachable `personaById.has(id) ? 'stand' : 'stand'`
-  // with a plain return after the exhaustive switch (all PersonaId variants covered above).
-  personaById.has(id) // keep reference to silence unused-import lint if needed
   return 'stand'
 }
