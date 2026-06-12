@@ -460,7 +460,8 @@ git commit -m "feat(engine): add mid-round game snapshot/restore with RNG contin
 ```ts
   it('emits hole-revealed exactly once per round, before dealer draws', () => {
     const events: string[] = []
-    const g = game([c(10), c(7, 'hearts'), c(6), c(10, 'clubs'), c(5), c(9, 'diamonds')])
+    // erratum: hole must be LOW so the dealer draws after the reveal (7+6=13 → draws 9♦ → bust)
+    const g = game([c(10), c(7, 'hearts'), c(6), c(6, 'clubs'), c(5), c(9, 'diamonds')])
     g.on((e) => {
       if (e.type === 'hole-revealed' || e.type === 'card-dealt') events.push(e.type)
     })
