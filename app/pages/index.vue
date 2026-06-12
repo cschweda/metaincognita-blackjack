@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PRESETS, cloneRules, validateRuleSet } from '~/utils/engine/rules'
 import type { PersonaId } from '~/utils/engine/bots'
-import type { PlayMode, PlaySpeed } from '~/stores/useBlackjackStore'
+import type { PlayMode, PlaySpeed, AdvisorIntensity, CountVisibility } from '~/stores/useBlackjackStore'
 
 const store = useBlackjackStore()
 const { startSession, restoreSession } = useGameLoop()
@@ -14,6 +14,21 @@ const mode = ref<PlayMode>('casino')
 const speed = ref<PlaySpeed>('normal')
 const flair = ref(true)
 const bankrollChoice = ref(50_000)
+
+const advisor = ref<AdvisorIntensity>('coach')
+const countVisibility = ref<CountVisibility>('self-check')
+const advancedDeviations = ref(false)
+
+const advisorOptions = [
+  { label: 'Coach — tell me before I act', value: 'coach' },
+  { label: 'Feedback — grade me after', value: 'feedback' },
+  { label: 'Exam — grade silently', value: 'exam' }
+]
+const countOptions = [
+  { label: 'Shown — RC/TC on screen', value: 'shown' },
+  { label: 'Self-check — press C to verify', value: 'self-check' },
+  { label: 'Off', value: 'off' }
+]
 
 const bankrollOptions = [20_000, 50_000, 100_000, 500_000]
   .map(v => ({ label: `$${(v / 100).toLocaleString()}`, value: v }))
@@ -41,9 +56,9 @@ function start(): void {
     speed: speed.value,
     flair: flair.value,
     botIds: trimmedBots,
-    advisor: 'feedback',
-    count: 'off',
-    advancedDeviations: false
+    advisor: advisor.value,
+    count: countVisibility.value,
+    advancedDeviations: countVisibility.value === 'off' ? false : advancedDeviations.value
   }, bankrollChoice.value)
   router.push('/table')
 }
@@ -94,6 +109,38 @@ function start(): void {
         v-model="botIds"
         :max="maxBots"
       />
+    </section>
+
+    <section>
+      <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+        Training
+      </h2>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <UFormField label="Advisor">
+          <USelect
+            v-model="advisor"
+            :items="advisorOptions"
+            data-testid="advisor-select"
+          />
+        </UFormField>
+        <UFormField label="Card counting">
+          <USelect
+            v-model="countVisibility"
+            :items="countOptions"
+            data-testid="count-select"
+          />
+        </UFormField>
+        <UFormField
+          v-if="countVisibility !== 'off'"
+          label="Count deviations"
+        >
+          <USwitch
+            v-model="advancedDeviations"
+            label="Illustrious 18 + Fab 4 (advanced)"
+            data-testid="advanced-switch"
+          />
+        </UFormField>
+      </div>
     </section>
 
     <section class="grid gap-4 sm:grid-cols-3">

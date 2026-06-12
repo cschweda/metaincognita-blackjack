@@ -5,6 +5,7 @@ import PresetPicker from '../../app/components/setup/PresetPicker.vue'
 import RulesEditor from '../../app/components/setup/RulesEditor.vue'
 import BotPicker from '../../app/components/setup/BotPicker.vue'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
+import IndexPage from '../../app/pages/index.vue'
 
 beforeEach(() => setActivePinia(createPinia()))
 
@@ -43,5 +44,14 @@ describe('BotPicker', () => {
     await w.find('[data-testid="bot-mike"]').trigger('click') // over cap — ignored
     const emitted = w.emitted('update:modelValue')!
     expect(emitted[emitted.length - 1]![0]).toHaveLength(2)
+  })
+})
+
+describe('setup page — training options', () => {
+  it('renders advisor/count selects and the advanced switch', async () => {
+    const w = await mountSuspended(IndexPage)
+    expect(w.find('[data-testid="advisor-select"]').exists()).toBe(true)
+    expect(w.find('[data-testid="count-select"]').exists()).toBe(true)
+    expect(w.find('[data-testid="advanced-switch"]').exists()).toBe(true) // default self-check ≠ off
   })
 })
