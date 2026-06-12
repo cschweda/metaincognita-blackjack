@@ -193,7 +193,8 @@ function applyEvent(e: GameEvent): void {
       if (view && hv) {
         hv.outcome = e.outcome
         hv.net = e.net
-        if (view.occupant !== 'hero') view.quip = pickQuip(view.occupant, e.outcome)
+        const flair = useBlackjackStore().settings?.flair === true
+        if (flair && view.occupant !== 'hero') view.quip = pickQuip(view.occupant, e.outcome)
       }
       bookkeepHand(e)
       break
