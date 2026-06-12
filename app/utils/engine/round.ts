@@ -61,6 +61,7 @@ export type GameEvent
     | { type: 'announce', text: string }
     | { type: 'phase', phase: Phase }
     | { type: 'peek-result', blackjack: boolean }
+    | { type: 'hole-revealed', card: Card }
     | { type: 'hand-settled', spotId: number, handIndex: number, outcome: NonNullable<SettledHand['outcome']>, net: number }
     | { type: 'side-bet-settled', spotId: number, result: SideBetResult, net: number }
     | { type: 'insurance-settled', spotId: number, net: number }
@@ -114,6 +115,7 @@ export class BlackjackGame {
     this.holeRevealed = true
     const hole = this.dealerCards[1]
     if (hole) {
+      this.emit({ type: 'hole-revealed', card: hole })
       this.emit({ type: 'count-visible-card', card: hole })
       this.emit({ type: 'announce', text: `Dealer's card — ${handTotal(this.dealerCards).total}` })
     }

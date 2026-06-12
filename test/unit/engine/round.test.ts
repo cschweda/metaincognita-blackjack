@@ -184,6 +184,21 @@ describe('BlackjackGame — events', () => {
     expect(seen).toContain('10') // hole revealed at dealer turn
     expect(seen.length).toBeGreaterThanOrEqual(4)
   })
+
+  it('emits hole-revealed exactly once per round, before dealer draws', () => {
+    const events: string[] = []
+    // hero 10+6=16, dealer up=7♥, hole=6♣ (dealer 13 → must draw); hero hits 5 → 21 → stand; dealer draws 9♦ → 22 bust
+    const g = game([c(10), c(7, 'hearts'), c(6), c(6, 'clubs'), c(5), c(9, 'diamonds')])
+    g.on((e) => {
+      if (e.type === 'hole-revealed' || e.type === 'card-dealt') events.push(e.type)
+    })
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit') // 16 + 5 = 21 → auto-stand → dealer turn
+    expect(events.filter(e => e === 'hole-revealed')).toHaveLength(1)
+    const revealIdx = events.indexOf('hole-revealed')
+    const lastDeal = events.lastIndexOf('card-dealt')
+    expect(revealIdx).toBeLessThan(lastDeal) // dealer's draw comes after the reveal
+  })
 })
 
 describe('BlackjackGame — review fixes', () => {
