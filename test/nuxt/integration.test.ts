@@ -69,4 +69,19 @@ describe('table page integration (quick mode, seeded)', () => {
       expect(page.find('[data-testid="count-values"]').exists()).toBe(true)
     }
   })
+
+  it('study mode freezes the deal', async () => {
+    const loop = useGameLoop()
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    loop.startSession({
+      rules, mode: 'quick', speed: 'normal', flair: false, botIds: [],
+      advisor: 'feedback', count: 'off', advancedDeviations: false
+    }, 100_000, 5)
+    const page = await mountSuspended(TablePage)
+    await page.find('[data-testid="chip-2500"]').trigger('click')
+    await page.find('[data-testid="study-toggle"]').trigger('click')
+    expect(page.find('[data-testid="deal"]').attributes('disabled')).toBeDefined()
+    expect(page.find('[data-testid="study-hotspot-shoe"]').exists()).toBe(true)
+  })
 })

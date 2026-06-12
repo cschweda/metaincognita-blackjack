@@ -75,9 +75,12 @@ function backToSetup(): void {
 }
 
 // Keyboard map (spec §6): H/S/D/P/R act, B rebet, Space deal
+const studyMode = ref(false)
+
 const actionBar = ref<{ rebet: () => void, deal: () => void } | null>(null)
 const KEYS: Record<string, Action> = { h: 'hit', s: 'stand', d: 'double', p: 'split', r: 'surrender' }
 function onKey(e: KeyboardEvent): void {
+  if (studyMode.value) return
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
   const tag = (e.target as HTMLElement | null)?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
@@ -150,6 +153,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           <CountPanel ref="countPanel" />
         </div>
       </div>
+      <StudyHotspots
+        v-if="studyMode && rules"
+        :rules="rules"
+      />
     </div>
 
     <!-- controls -->
@@ -157,15 +164,27 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       <div class="mb-1 flex items-center justify-between px-1 text-xs text-neutral-400">
         <span v-if="inPlay > 0">In play: <span class="font-mono text-[var(--accent-cream)]">${{ (inPlay / 100).toLocaleString() }}</span></span>
         <span v-else>Place your bet — table ${{ (rules.minBet / 100).toLocaleString() }}–${{ (rules.maxBet / 100).toLocaleString() }}</span>
-        <span>Session: {{ store.session.roundsPlayed }} rounds</span>
+        <div class="flex items-center gap-2">
+          <UButton
+            size="xs"
+            :variant="studyMode ? 'solid' : 'outline'"
+            color="neutral"
+            icon="i-lucide-graduation-cap"
+            data-testid="study-toggle"
+            @click="studyMode = !studyMode"
+          >
+            Study
+          </UButton>
+          <span>Session: {{ store.session.roundsPlayed }} rounds</span>
+        </div>
       </div>
       <ActionBar
         ref="actionBar"
         :phase="betweenRounds ? 'betting' : phase === 'insurance' ? 'insurance' : 'playerTurns'"
         :rules="rules"
-        :legal-actions="legalActions"
+        :legal-actions="studyMode ? [] : legalActions"
         :bankroll="store.bankroll"
-        :can-deal="betweenRounds && queueIdle"
+        :can-deal="betweenRounds && queueIdle && !studyMode"
         :hero-has-blackjack="heroHasBlackjack"
         :last-bet="lastBet"
         :evs="advisorRec?.evs"
