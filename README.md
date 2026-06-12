@@ -7,7 +7,11 @@ Part of the Metaincognita casino simulator suite (Hold'em, Video Poker, Flameout
 
 ## Status
 
-v0.1.0 — engine complete (fully tested, simulation-verified); UI in progress.
+v0.2.0 — playable game shipped: setup screen (cited presets, custom rules editor, bot
+companions), the felt table with paced casino dealing or quick play, chip betting with side
+bets and insurance, keyboard play, and bulletproof session persistence (a mid-round refresh
+restores the exact table). Training surfaces (advisor, counting, history/analysis/learn/drills)
+land in 0.3.0.
 Design spec: `docs/superpowers/specs/2026-06-11-blackjack-trainer-design.md`.
 Engine: `app/utils/engine/` — framework-free TypeScript, seeded RNG, official-rulebook citations inline.
 
