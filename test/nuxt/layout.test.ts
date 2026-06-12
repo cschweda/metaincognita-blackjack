@@ -1,0 +1,12 @@
+import { describe, expect, it } from 'vitest'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import DefaultLayout from '../../app/layouts/default.vue'
+
+describe('default layout', () => {
+  it('renders the four training nav links', async () => {
+    const w = await mountSuspended(DefaultLayout)
+    for (const id of ['nav-history', 'nav-analysis', 'nav-learn', 'nav-drills']) {
+      expect(w.find(`[data-testid="${id}"]`).exists()).toBe(true)
+    }
+  })
+})
