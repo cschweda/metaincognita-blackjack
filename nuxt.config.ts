@@ -3,6 +3,10 @@ export default defineNuxtConfig({
   modules: ['@pinia/nuxt', '@nuxt/eslint', '@nuxt/ui', '@nuxt/test-utils'],
   ssr: false,
 
+  // components live in domain subdirectories (cards/, table/, setup/) but are
+  // referenced unprefixed in templates (<PlayingCard>, <ChipStack>, ...)
+  components: [{ path: '~/components', pathPrefix: false }],
+
   devtools: {
     enabled: true
   },
