@@ -15,6 +15,8 @@ import {
   __resetCountingForTests, useCounting
 } from './useCounting'
 import { adviseHand, adviseInsurance, decisionCost } from '../utils/advisor'
+import { freshMilestones, roundMilestones, shuffleMilestone } from '../utils/milestones'
+import type { MilestoneState } from '../utils/milestones'
 
 export interface ShownCard {
   card: Card
@@ -52,6 +54,7 @@ let pumping = false
 let visibleThisRound: string[] = []
 let decisionsThisRound: DecisionRecord[] = []
 let insuranceThisRound: InsuranceRecord | null = null
+let milestones: MilestoneState = freshMilestones(0)
 const lastDecision = ref<DecisionRecord | null>(null)
 let quipRng = mulberry32(randomSeed())
 const eventQueue: GameEvent[] = []
@@ -108,6 +111,7 @@ export function __resetGameLoopForTests(): void {
   liveText.value = ''
   queueIdle.value = true
   trayFill.value = 0
+  milestones = freshMilestones(0)
   __resetCountingForTests()
 }
 
@@ -169,6 +173,13 @@ function applyEvent(e: GameEvent): void {
       countShuffle()
       pushAnnouncement('Shuffling the shoe')
       updateTrayFill()
+      if (useBlackjackStore().settings?.flair) {
+        const result = shuffleMilestone(useBlackjackStore().bankroll, milestones)
+        milestones = result.state
+        if (result.line) pushAnnouncement(result.line)
+      } else {
+        milestones = { ...milestones, bankrollAtShuffle: useBlackjackStore().bankroll }
+      }
       break
     case 'card-dealt': {
       if (e.to === 'dealer-up' || e.to === 'dealer-hole' || e.to === 'dealer-draw') {
@@ -369,6 +380,26 @@ function finalizeRound(): void {
     heroInsurance: insuranceThisRound
   }
   store.recordRound(record)
+  if (store.settings?.flair) {
+    const heroNet = record.spots
+      .filter(s => s.occupant === 'hero')
+      .reduce((sum, s) => sum + s.hands.reduce((x, h) => x + h.net, 0)
+        + s.sideBets.reduce((x, b) => x + b.net, 0) + s.insuranceNet, 0)
+    const result = roundMilestones({
+      heroNet,
+      tookCorrectDeviation: decisionsThisRound.some(d => d.deviationId !== null && d.correct),
+      state: milestones
+    })
+    milestones = result.state
+    for (const line of result.lines) pushAnnouncement(line)
+    // an occasional table myth from a companion (spec §8)
+    const botViews = spotsView.value.filter(v => v.occupant !== 'hero')
+    if (botViews.length > 0 && quipRng() < 0.18) {
+      const view = botViews[Math.floor(quipRng() * botViews.length)]!
+      const persona = PERSONAS.find(p => p.id === view.occupant)!
+      view.quip = persona.quips.myth[Math.floor(quipRng() * persona.quips.myth.length)]!
+    }
+  }
   // bot bet progression
   for (const { spotId, id } of bots) {
     const spot = game.spots.find(s => s.spotId === spotId)
@@ -456,6 +487,7 @@ export function useGameLoop() {
     store.initSession(settings, bankroll)
     attach(new BlackjackGame(settings.rules, { seed: seed ?? randomSeed() }))
     quipRng = mulberry32(seed ?? randomSeed())
+    milestones = freshMilestones(bankroll)
     resetPresentation()
     resetCounting()
   }
@@ -463,6 +495,7 @@ export function useGameLoop() {
   function restoreSession(): boolean {
     if (!store.sessionActive && !store.restore()) return false
     if (!store.settings) return false
+    milestones = freshMilestones(store.bankroll)
     if (store.roundSnapshot) {
       attach(BlackjackGame.restore(store.roundSnapshot))
       fastForwardPresentation()

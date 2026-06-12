@@ -64,10 +64,12 @@ function totalLabel(cards: { rank: number, suit: string }[]): string {
             {{ OUTCOME_BADGE[hand.outcome]!.text }}
           </span>
         </div>
-        <ChipStack
-          :amount="hand.bet"
-          size="sm"
-        />
+        <div :class="{ 'payout-flash': hand.outcome !== null && hand.net > 0 }">
+          <ChipStack
+            :amount="hand.bet"
+            size="sm"
+          />
+        </div>
       </div>
     </div>
 
