@@ -3,6 +3,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import TablePage from '../../app/pages/table.vue'
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
 import { useGameLoop, __resetGameLoopForTests } from '../../app/composables/useGameLoop'
+import { __resetCountingForTests } from '../../app/composables/useCounting'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
 
 // NOTE: no setActivePinia(createPinia()) here — mountSuspended mounts inside the Nuxt app,
@@ -13,6 +14,7 @@ describe('table page integration (quick mode, seeded)', () => {
   beforeEach(() => {
     localStorage.clear()
     __resetGameLoopForTests()
+    __resetCountingForTests()
   })
 
   it('plays a betting → deal → act → settle round through the DOM', async () => {
@@ -45,5 +47,26 @@ describe('table page integration (quick mode, seeded)', () => {
     const hero = rec.spots.find(s => s.occupant === 'hero')!
     const net = hero.hands.reduce((s, h) => s + h.net, 0) + hero.insuranceNet
     expect(store.bankroll).toBe(100_000 + net)
+  })
+
+  it('coach mode surfaces a recommendation and the count panel shows RC', async () => {
+    const loop = useGameLoop()
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    loop.startSession({
+      rules, mode: 'quick', speed: 'normal', flair: false, botIds: [],
+      advisor: 'coach', count: 'shown', advancedDeviations: false
+    }, 100_000, 21)
+
+    const page = await mountSuspended(TablePage)
+    await page.find('[data-testid="chip-2500"]').trigger('click')
+    await page.find('[data-testid="deal"]').trigger('click')
+    if (loop.phase.value === 'insurance') {
+      await page.find('[data-testid="decline-insurance"]').trigger('click')
+    }
+    if (loop.phase.value === 'playerTurns') {
+      expect(page.find('[data-testid="advisor-action"]').exists()).toBe(true)
+      expect(page.find('[data-testid="count-values"]').exists()).toBe(true)
+    }
   })
 })

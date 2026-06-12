@@ -66,3 +66,22 @@ describe('ActionBar — actions & insurance', () => {
     expect(w.emitted('insurance')![0]).toEqual([null])
   })
 })
+
+describe('ActionBar — EV hints', () => {
+  it('renders sr-only EV hints when evs are provided', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: {
+        ...base, phase: 'playerTurns', legalActions: ['hit', 'stand'],
+        evs: { hit: -0.41, stand: -0.54 }
+      }
+    })
+    expect(w.find('[data-testid="act-hit"]').text()).toContain('EV -41.0%')
+  })
+
+  it('renders the insurance advice line when provided', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'insurance', insuranceAdvice: 'Book play: never take insurance.' }
+    })
+    expect(w.find('[data-testid="insurance-advice"]').text()).toContain('never take insurance')
+  })
+})

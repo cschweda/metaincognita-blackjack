@@ -12,6 +12,9 @@ const props = defineProps<{
   canDeal: boolean
   heroHasBlackjack: boolean
   lastBet: { main: number, side: Partial<Record<SideBetKind, number>> } | null
+  /** Per-action EVs — coach mode only; renders a tooltip + sr-only hint per button. */
+  evs?: Partial<Record<Action, number>>
+  insuranceAdvice?: string
 }>()
 
 const emit = defineEmits<{
@@ -191,6 +194,13 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           No insurance
         </UButton>
       </div>
+      <p
+        v-if="insuranceAdvice"
+        class="text-xs text-neutral-400"
+        data-testid="insurance-advice"
+      >
+        {{ insuranceAdvice }}
+      </p>
     </template>
 
     <!-- PLAYER TURNS -->
@@ -203,11 +213,16 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           :color="action === 'surrender' ? 'neutral' : 'primary'"
           :variant="action === 'hit' || action === 'stand' ? 'solid' : 'soft'"
           :disabled="!legalActions.includes(action)"
+          :title="evs?.[action] !== undefined ? `EV ${(evs[action]! * 100).toFixed(1)}%` : undefined"
           :data-testid="`act-${action}`"
           @click="emit('act', action)"
         >
           {{ ACTION_META[action].label }}
           <kbd class="ml-1 text-[10px] opacity-60">{{ ACTION_META[action].key }}</kbd>
+          <span
+            v-if="evs?.[action] !== undefined"
+            class="sr-only"
+          >EV {{ (evs[action]! * 100).toFixed(1) }}%</span>
         </UButton>
       </div>
     </template>

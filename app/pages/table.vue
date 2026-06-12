@@ -2,6 +2,9 @@
 import type { Action } from '~/utils/engine/hand'
 import { isBlackjack } from '~/utils/engine/hand'
 import type { SideBetKind } from '~/utils/engine/round'
+import { useCounting } from '~/composables/useCounting'
+import { adviseHand, adviseInsurance } from '~/utils/advisor'
+import CountPanel from '~/components/panels/CountPanel.vue'
 
 const store = useBlackjackStore()
 const loop = useGameLoop()
@@ -9,19 +12,42 @@ const router = useRouter()
 
 const {
   phase, dealerRow, spotsView, announcements, liveText, queueIdle,
-  canAct, legalActions, heroSpotId, inPlay, hasGame, trayFill
+  canAct, legalActions, heroSpotId, inPlay, hasGame, trayFill,
+  heroTurn, lastDecision
 } = loop
 
 const lastBet = ref<{ main: number, side: Partial<Record<SideBetKind, number>> } | null>(null)
+
+const rules = computed(() => store.settings?.rules)
+const heroView = computed(() => spotsView.value.find(s => s.occupant === 'hero') ?? null)
+
+const counting = useCounting()
+
+const advisorRec = computed(() => {
+  const t = heroTurn.value
+  if (!t || !rules.value || !store.settings || store.settings.advisor !== 'coach') return null
+  return adviseHand(
+    { cards: t.cards, fromSplit: t.fromSplit },
+    t.dealerUp, rules.value, counting.tc.value, store.settings.advancedDeviations,
+    legalActions.value
+  )
+})
+
+const insuranceAdvice = computed(() => {
+  if (!store.settings || store.settings.advisor !== 'coach' || phase.value !== 'insurance') return undefined
+  return adviseInsurance(counting.tc.value, store.settings.advancedDeviations).reasoning
+})
+
+/** True after a deal that carried side stakes — keeps the coach's caution visible through
+ *  the NEXT betting phase (the moment the habit is correctable), not just mid-deal. */
+const sideStakesPlaced = ref(false)
+const countPanel = ref<InstanceType<typeof CountPanel> | null>(null)
 
 onMounted(() => {
   if (!hasGame.value && !loop.restoreSession()) {
     router.replace('/')
   }
 })
-
-const rules = computed(() => store.settings?.rules)
-const heroView = computed(() => spotsView.value.find(s => s.occupant === 'hero') ?? null)
 const heroHasBlackjack = computed(() => {
   const cards = heroView.value?.hands[0]?.cards
   return !!cards && cards.length === 2 && isBlackjack(cards, false)
@@ -31,6 +57,7 @@ const latestAnnouncement = computed(() => announcements.value[announcements.valu
 
 function onDeal(main: number, side: Partial<Record<SideBetKind, number>>): void {
   lastBet.value = { main, side }
+  sideStakesPlaced.value = Object.values(side).some(v => (v ?? 0) > 0)
   loop.beginRound(main, side)
 }
 
@@ -60,6 +87,8 @@ function onKey(e: KeyboardEvent): void {
     actionBar.value?.deal()
   } else if (key === 'b' && betweenRounds.value) {
     actionBar.value?.rebet()
+  } else if (key === 'c' && store.settings?.count === 'self-check') {
+    countPanel.value?.focusCheck()
   } else if (KEYS[key] && canAct.value && legalActions.value.includes(KEYS[key]!)) {
     onAct(KEYS[key]!)
   }
@@ -107,6 +136,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           />
         </template>
       </BlackjackTable>
+
+      <div class="pointer-events-none absolute right-3 top-3 z-10 flex w-64 flex-col gap-2">
+        <div class="pointer-events-auto">
+          <AdvisorPanel
+            :intensity="store.settings!.advisor"
+            :recommendation="advisorRec"
+            :last-decision="lastDecision"
+            :show-side-bet-caution="store.settings!.advisor === 'coach' && betweenRounds && sideStakesPlaced"
+          />
+        </div>
+        <div class="pointer-events-auto">
+          <CountPanel ref="countPanel" />
+        </div>
+      </div>
     </div>
 
     <!-- controls -->
@@ -125,6 +168,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :can-deal="betweenRounds && queueIdle"
         :hero-has-blackjack="heroHasBlackjack"
         :last-bet="lastBet"
+        :evs="advisorRec?.evs"
+        :insurance-advice="insuranceAdvice"
         @deal="onDeal"
         @act="onAct"
         @insurance="onInsurance"
