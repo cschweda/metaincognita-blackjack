@@ -3,13 +3,18 @@ import { BlackjackGame } from '../utils/engine/round'
 import type { Action } from '../utils/engine/hand'
 import type { GameEvent, Phase, SpotBet, SpotState, SideBetKind } from '../utils/engine/round'
 import type { Card } from '../utils/engine/cards'
-import { displayCard } from '../utils/engine/cards'
-import { handTotal, isBust, isBlackjack } from '../utils/engine/hand'
+import { displayCard, bucketOf } from '../utils/engine/cards'
+import { handTotal, isBust, isBlackjack, isPair } from '../utils/engine/hand'
 import { PERSONAS, decideFor } from '../utils/engine/bots'
 import type { PersonaId } from '../utils/engine/bots'
 import { mulberry32, randomSeed } from '../utils/engine/rng'
 import { useBlackjackStore } from '../stores/useBlackjackStore'
-import type { RoundRecord } from '../stores/useBlackjackStore'
+import type { RoundRecord, DecisionRecord, InsuranceRecord } from '../stores/useBlackjackStore'
+import {
+  countShuffle, countVisibleCard, resetCounting, restoreCounting,
+  __resetCountingForTests, useCounting
+} from './useCounting'
+import { adviseHand, adviseInsurance, decisionCost } from '../utils/advisor'
 
 export interface ShownCard {
   card: Card
@@ -45,6 +50,9 @@ let unsubscribe: (() => void) | null = null
 let roundCounter = 0
 let pumping = false
 let visibleThisRound: string[] = []
+let decisionsThisRound: DecisionRecord[] = []
+let insuranceThisRound: InsuranceRecord | null = null
+const lastDecision = ref<DecisionRecord | null>(null)
 let quipRng = mulberry32(randomSeed())
 const eventQueue: GameEvent[] = []
 
@@ -89,6 +97,9 @@ export function __resetGameLoopForTests(): void {
   roundCounter = 0
   pumping = false
   visibleThisRound = []
+  decisionsThisRound = []
+  insuranceThisRound = null
+  lastDecision.value = null
   eventQueue.length = 0
   phase.value = 'betting'
   dealerRow.value = []
@@ -97,6 +108,7 @@ export function __resetGameLoopForTests(): void {
   liveText.value = ''
   queueIdle.value = true
   trayFill.value = 0
+  __resetCountingForTests()
 }
 
 function updateTrayFill(): void {
@@ -154,6 +166,7 @@ function applyEvent(e: GameEvent): void {
       phase.value = e.phase
       break
     case 'shuffle':
+      countShuffle()
       pushAnnouncement('Shuffling the shoe')
       updateTrayFill()
       break
@@ -209,6 +222,7 @@ function applyEvent(e: GameEvent): void {
       bookkeepInsurance(e)
       break
     case 'count-visible-card':
+      countVisibleCard(e.card)
       visibleThisRound.push(displayCard(e.card))
       break
   }
@@ -350,7 +364,9 @@ function finalizeRound(): void {
       sideBets: spot.sideBetResults.map(r => ({ name: r.name, stake: r.stake, net: r.net, label: r.label })),
       insuranceNet: spot.insuranceNet
     })),
-    visibleCards: visibleThisRound
+    visibleCards: visibleThisRound,
+    heroDecisions: [...decisionsThisRound],
+    heroInsurance: insuranceThisRound
   }
   store.recordRound(record)
   // bot bet progression
@@ -387,6 +403,7 @@ function attach(g: BlackjackGame): void {
 
 export function useGameLoop() {
   const store = useBlackjackStore()
+  const counting = useCounting()
 
   const heroSpotId = computed(() => heroSpot())
   const hasGame = computed(() => {
@@ -418,12 +435,29 @@ export function useGameLoop() {
     return spot.hands.reduce((s, h) => s + (h.outcome === null ? h.bet : 0), 0)
       + stakes + (spot.insuranceBet ?? 0)
   })
+  const heroTurn = computed(() => {
+    void gameGen.value
+    // canAct is also the refresh trigger: canAct → legalActions → queueIdle, so every pump
+    // cycle (incl. split-hand advances) recomputes this — gameGen alone would go stale
+    if (!game || !canAct.value) return null
+    const spot = game.spots.find(s => s.spotId === heroSpot())
+    const hand = spot?.hands[spot.activeHandIndex]
+    if (!spot || !hand || !game.dealerUp) return null
+    return {
+      cards: [...hand.cards],
+      bet: hand.bet,
+      fromSplit: hand.fromSplit,
+      handIndex: spot.activeHandIndex,
+      dealerUp: game.dealerUp
+    }
+  })
 
   function startSession(settings: Parameters<typeof store.initSession>[0], bankroll: number, seed?: number): void {
     store.initSession(settings, bankroll)
     attach(new BlackjackGame(settings.rules, { seed: seed ?? randomSeed() }))
     quipRng = mulberry32(seed ?? randomSeed())
     resetPresentation()
+    resetCounting()
   }
 
   function restoreSession(): boolean {
@@ -432,9 +466,11 @@ export function useGameLoop() {
     if (store.roundSnapshot) {
       attach(BlackjackGame.restore(store.roundSnapshot))
       fastForwardPresentation()
+      restoreCounting()
     } else {
       attach(new BlackjackGame(store.settings.rules, { seed: randomSeed() }))
       resetPresentation()
+      resetCounting()
     }
     return true
   }
@@ -481,6 +517,8 @@ export function useGameLoop() {
   function beginRound(heroBet: number, heroSideStakes: Partial<Record<SideBetKind, number>>): void {
     if (!game || !store.settings) throw new Error('no active game')
     visibleThisRound = []
+    decisionsThisRound = []
+    insuranceThisRound = null
     const bots = botSpotAssignments()
     const bets: SpotBet[] = []
     for (const { spotId, id } of bots) {
@@ -506,12 +544,61 @@ export function useGameLoop() {
   function act(action: Action): void {
     if (!game) throw new Error('no active game')
     if (!canAct.value) throw new Error('cannot act while the table is presenting')
+    const spot = game.spots.find(s => s.spotId === heroSpot())!
+    const hand = spot.hands[spot.activeHandIndex]!
+    const tc = counting.tc.value
+    const rec = adviseHand(
+      { cards: hand.cards, fromSplit: hand.fromSplit },
+      game.dealerUp!, store.settings!.rules, tc, store.settings!.advancedDeviations,
+      legalActions.value
+    )
+    const pairFlag = isPair(hand.cards) && legalActions.value.includes('split')
+    const { total, soft } = handTotal(hand.cards)
+    const correct = action === rec.action
+    const decision: DecisionRecord = {
+      handIndex: spot.activeHandIndex,
+      cards: hand.cards.map(displayCard),
+      total,
+      soft,
+      pair: pairFlag,
+      pairBucket: pairFlag ? bucketOf(hand.cards[0]!) : null,
+      upBucket: bucketOf(game.dealerUp!),
+      dealerUp: displayCard(game.dealerUp!),
+      action,
+      book: rec.book,
+      deviationId: rec.deviation?.id ?? null,
+      deviationPlay: rec.deviation ? (rec.deviation.play as DecisionRecord['deviationPlay']) : null,
+      correct,
+      // correct deviation plays diverge from book by design — they cost $0 (advisor contract).
+      // Grading is vs rec.action (deviation-aware); pricing is vs rec.book (full-shoe EV is
+      // the only thing decisionCost can price — count-adjusted EVs are not computable here)
+      costCents: correct ? 0 : decisionCost(rec.evs, action, rec.book, hand.bet),
+      evs: rec.evs,
+      rc: counting.rc.value,
+      tc: Math.round(tc * 10) / 10,
+      category: rec.book === 'surrender' ? 'surrender' : pairFlag ? 'pair' : soft ? 'soft' : 'hard'
+    }
+    store.recordDecision(decision)
+    decisionsThisRound.push(decision)
+    lastDecision.value = decision
+    if (store.settings!.advisor !== 'exam' && !decision.correct) {
+      pushAnnouncement(`Book: ${rec.action}${decision.costCents > 0 ? ` — that cost ≈$${(decision.costCents / 100).toFixed(2)}` : ''}`)
+    }
     game.act(heroSpot(), action)
     void pump()
   }
 
   function heroInsurance(decision: number | 'even-money' | null): void {
     if (!game) throw new Error('no active game')
+    const adv = adviseInsurance(counting.tc.value, store.settings!.advancedDeviations)
+    insuranceThisRound = {
+      took: decision,
+      book: adv.take ? 'take' : 'decline',
+      correct: adv.take ? decision !== null : decision === null,
+      rc: counting.rc.value,
+      tc: Math.round(counting.tc.value * 10) / 10
+    }
+    store.recordInsuranceDecision(insuranceThisRound)
     game.insuranceDecision(heroSpot(), decision)
     game.finishInsurance()
     void pump()
@@ -523,11 +610,12 @@ export function useGameLoop() {
     gameGen.value++
     store.clearAll()
     resetPresentation()
+    resetCounting()
   }
 
   return {
     phase, dealerRow, spotsView, announcements, liveText, queueIdle, trayFill,
-    canAct, legalActions, heroSpotId, inPlay, hasGame,
+    canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision,
     startSession, restoreSession, beginRound, act, heroInsurance, endSession
   }
 }

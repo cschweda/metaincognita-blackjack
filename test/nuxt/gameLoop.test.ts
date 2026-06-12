@@ -4,6 +4,7 @@ import { useGameLoop, __resetGameLoopForTests } from '../../app/composables/useG
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
 import type { SessionSettings } from '../../app/stores/useBlackjackStore'
+import { __resetCountingForTests } from '../../app/composables/useCounting'
 
 function settings(overrides: Partial<SessionSettings> = {}): SessionSettings {
   const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
@@ -16,6 +17,7 @@ describe('useGameLoop (quick mode)', () => {
     setActivePinia(createPinia())
     localStorage.clear()
     __resetGameLoopForTests()
+    __resetCountingForTests()
   })
 
   it('plays a full heads-up round synchronously in quick mode', () => {
@@ -109,5 +111,86 @@ describe('useGameLoop (quick mode)', () => {
     expect(loop.hasGame.value).toBe(true)
     loop.beginRound(1000, {})
     expect(loop.trayFill.value).toBeGreaterThan(0) // burn card at minimum
+  })
+
+  it('feeds presented cards into the count and persists count state', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, 7)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    expect(store.countState).not.toBeNull()
+    expect(store.countState!.cardsSeen).toBeGreaterThanOrEqual(3) // 2 hero + dealer up
+  })
+
+  it('captures graded decisions with RC/TC and attaches them to the round record', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ advisor: 'exam', count: 'shown' }), 100_000, 7)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    while (loop.phase.value === 'playerTurns') {
+      loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+    }
+    const rec = store.history[0]!
+    expect(rec.heroDecisions!.length).toBeGreaterThanOrEqual(1)
+    const d = rec.heroDecisions![0]!
+    expect(d.book).toBeDefined()
+    expect(typeof d.correct).toBe('boolean')
+    expect(typeof d.rc).toBe('number')
+    expect(['hard', 'soft', 'pair', 'surrender']).toContain(d.category)
+    const t = store.training.adherence
+    const totalDecisions = t.hard.decisions + t.soft.decisions + t.pair.decisions + t.surrender.decisions
+    expect(totalDecisions).toBe(rec.heroDecisions!.length)
+  })
+
+  it('grades decisions and exposes the last one reactively', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings(), 100_000, 7)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    while (loop.phase.value === 'playerTurns') {
+      const before = loop.lastDecision.value
+      loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+      expect(loop.lastDecision.value).not.toBe(before)
+      expect(loop.lastDecision.value!.costCents).toBeGreaterThanOrEqual(0)
+    }
+    expect(store.history[0]!.heroDecisions!.length).toBeGreaterThan(0)
+  })
+
+  it('records the insurance decision with book verdict', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, 33)
+    let guard = 0
+    while (loop.phase.value !== 'insurance' && guard++ < 40) {
+      if (loop.phase.value === 'playerTurns') {
+        loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+      } else {
+        loop.beginRound(1000, {})
+      }
+    }
+    expect(loop.phase.value).toBe('insurance')
+    loop.heroInsurance(null)
+    expect(store.training.adherence.insurance.decisions).toBe(1)
+    expect(store.training.adherence.insurance.correct).toBe(1) // declining is book
+    while (loop.phase.value === 'playerTurns') {
+      loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+    }
+    expect(store.history.at(-1)!.heroInsurance).toMatchObject({ took: null, book: 'decline', correct: true })
+  })
+
+  it('heroTurn exposes the live hand only when the hero can act', () => {
+    const loop = useGameLoop()
+    loop.startSession(settings(), 100_000, 7)
+    expect(loop.heroTurn.value).toBeNull()
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    if (loop.phase.value === 'playerTurns') {
+      expect(loop.heroTurn.value).not.toBeNull()
+      expect(loop.heroTurn.value!.cards.length).toBeGreaterThanOrEqual(2)
+      expect(loop.heroTurn.value!.dealerUp).toBeDefined()
+    }
   })
 })
