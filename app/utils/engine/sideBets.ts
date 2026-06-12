@@ -12,7 +12,7 @@ export interface SideBetResult {
 // Verified against docs/Rules-Blackjack-10-08-2020.pdf §28(f) p.36 and
 // docs/BLYS_AC-BlackJack-GamingGuide-4x9-Updated.pdf "21+3 SIDE XTREME WAGER" p.2
 
-const TWENTY_ONE_PLUS_THREE_PAYS: Record<string, Record<string, number>> = {
+export const TWENTY_ONE_PLUS_THREE_PAYS: Record<string, Record<string, number>> = {
   'MA-A': { 'straight-flush': 9, 'three-of-a-kind': 9, 'straight': 9, 'flush': 9 },
   'MA-B': { 'straight-flush': 30, 'three-of-a-kind': 20, 'straight': 10, 'flush': 5 },
   'AC-XTREME': { 'straight-flush': 30, 'three-of-a-kind': 20, 'straight': 10, 'flush': 5 }
@@ -49,7 +49,7 @@ export function evaluate21Plus3(
 //   Table A: QH+dealer BJ=1000, QH pair=125, Matched 20=19, Suited 20=9, Any 20=4
 //   Table B: QH+dealer BJ=1000, QH pair=200, Matched 20=25, Suited 20=10, Any 20=4
 
-const LUCKY_LADIES_PAYS: Record<string, Record<string, number>> = {
+export const LUCKY_LADIES_PAYS: Record<string, Record<string, number>> = {
   'MA-A': { 'qh-pair-dealer-bj': 1000, 'qh-pair': 125, 'matched-20': 19, 'suited-20': 9, 'any-20': 4 },
   'MA-B': { 'qh-pair-dealer-bj': 1000, 'qh-pair': 200, 'matched-20': 25, 'suited-20': 10, 'any-20': 4 }
 }
@@ -94,7 +94,7 @@ interface MtdPays {
   oneUnsuited: number
 }
 
-const MATCH_THE_DEALER_PAYS: Partial<Record<number, MtdPays>> = {
+export const MATCH_THE_DEALER_PAYS: Partial<Record<number, MtdPays>> = {
   2: { twoSuited: 0, suitedPlusUnsuited: 23, oneSuited: 19, twoUnsuited: 8, oneUnsuited: 4 },
   4: { twoSuited: 24, suitedPlusUnsuited: 16, oneSuited: 12, twoUnsuited: 8, oneUnsuited: 4 },
   6: { twoSuited: 22, suitedPlusUnsuited: 15, oneSuited: 11, twoUnsuited: 8, oneUnsuited: 4 },
@@ -136,7 +136,7 @@ export function evaluateMatchTheDealer(player: [Card, Card], dealerUp: Card, dec
 //   E: 3→2, 4→2, 5→3, 6→12, 7→50, 8+→250
 //   F: 3→1, 4→2, 5→8, 6→20, 7→50, 8+→250
 
-const BUSTER_PAYS: Record<string, Record<string, number>> = {
+export const BUSTER_PAYS: Record<string, Record<string, number>> = {
   A: { '3': 2, '4': 2, '5': 4, '6': 15, '7': 50, '8+': 250 },
   B: { '3': 2, '4': 2, '5': 4, '6': 15, '7': 50, '8+': 200 },
   C: { '3': 2, '4': 2, '5': 4, '6': 12, '7': 50, '8+': 250 },
