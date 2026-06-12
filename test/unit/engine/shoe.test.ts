@@ -68,4 +68,24 @@ describe('Shoe', () => {
     for (let i = 0; i < 51; i++) shoe.draw() // 52 - 1 burned
     expect(() => shoe.draw()).toThrow(/empty discard rack/)
   })
+
+  it('exposes discardCount for the tray UI (rack + burned)', () => {
+    const shoe = makeShoe(6)
+    expect(shoe.discardCount()).toBe(1) // burn card
+    const drawn = Array.from({ length: 10 }, () => shoe.draw())
+    shoe.discard(drawn)
+    expect(shoe.discardCount()).toBe(11)
+  })
+
+  it('round-trips through snapshot/restore with identical continuation', () => {
+    const a = makeShoe(2, 0.75, 123)
+    for (let i = 0; i < 20; i++) a.draw()
+    const snap = a.snapshot()
+    const b = Shoe.restore(snap, mulberry32(999)) // restore takes a fresh RNG for FUTURE shuffles
+    expect(b.cardsRemaining()).toBe(a.cardsRemaining())
+    expect(b.discardCount()).toBe(a.discardCount())
+    expect(b.needsShuffle()).toBe(a.needsShuffle())
+    expect(Array.from({ length: 30 }, () => b.draw()))
+      .toEqual(Array.from({ length: 30 }, () => a.draw()))
+  })
 })

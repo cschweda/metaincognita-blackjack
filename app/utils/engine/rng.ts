@@ -22,3 +22,24 @@ export function randomSeed(): number {
   }
   return Math.floor(Math.random() * 0x100000000)
 }
+
+export interface StatefulRNG {
+  next: RNG
+  /** Current internal mulberry32 state — pass back to statefulMulberry32 to resume. */
+  state(): number
+}
+
+/** Mulberry32 with extractable state (seed and state share the same uint32 domain). */
+export function statefulMulberry32(seedOrState: number): StatefulRNG {
+  let a = seedOrState >>> 0
+  return {
+    next: () => {
+      a = (a + 0x6D2B79F5) >>> 0
+      let t = a
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    },
+    state: () => a
+  }
+}

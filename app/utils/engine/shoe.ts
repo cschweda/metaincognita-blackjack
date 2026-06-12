@@ -1,6 +1,8 @@
 import type { Card } from './cards'
 import type { RNG } from './rng'
 import { buildShoeCards, shuffle } from './cards'
+import type { ShoeSnapshot } from './serializeTypes'
+import { SNAPSHOT_VERSION } from './serializeTypes'
 
 /**
  * Dealing shoe with burn card, cut-card penetration, and discard rack.
@@ -87,5 +89,33 @@ export class Shoe {
     const inTray = this.rack.length + this.burned.length
     const estimate = this.decks - inTray / 52
     return Math.max(0.5, Math.round(estimate * 2) / 2)
+  }
+
+  /** Cards in the discard tray (rack + burned) — drives the visibly-filling tray UI. */
+  discardCount(): number {
+    return this.rack.length + this.burned.length
+  }
+
+  snapshot(): ShoeSnapshot {
+    return {
+      v: SNAPSHOT_VERSION,
+      decks: this.decks,
+      penetration: this.penetration,
+      cards: this.cards.map(c => ({ ...c })),
+      rack: this.rack.map(c => ({ ...c })),
+      burned: this.burned.map(c => ({ ...c })),
+      reached: this.reached
+    }
+  }
+
+  /** Rebuild a shoe mid-state. The provided RNG drives FUTURE shuffles only. */
+  static restore(snap: ShoeSnapshot, rng: RNG): Shoe {
+    const shoe = new Shoe(snap.decks, snap.penetration, rng)
+    shoe.cards = snap.cards.map(c => ({ ...c }))
+    shoe.rack = snap.rack.map(c => ({ ...c }))
+    shoe.burned = snap.burned.map(c => ({ ...c }))
+    shoe.reached = snap.reached
+    shoe.cutIndex = Math.floor(snap.decks * 52 * snap.penetration)
+    return shoe
   }
 }
