@@ -114,6 +114,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     />
 
     <!-- felt -->
+    <BotChips :spots="spotsView" />
     <div class="relative min-h-0 flex-1 p-2">
       <BlackjackTable :rules="rules">
         <template #dealer>
@@ -126,21 +127,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           />
         </template>
         <template #seat="{ spotId }">
-          <SpotSeat
+          <div
             v-if="spotsView.find(s => s.spotId === spotId)"
-            :spot="spotsView.find(s => s.spotId === spotId)!"
-            :is-hero="spotId === heroSpotId"
-            :is-active="phase === 'playerTurns' && spotId === heroSpotId && canAct"
-          />
+            :class="spotId === heroSpotId ? '' : 'hidden md:block'"
+          >
+            <SpotSeat
+              :spot="spotsView.find(s => s.spotId === spotId)!"
+              :is-hero="spotId === heroSpotId"
+              :is-active="phase === 'playerTurns' && spotId === heroSpotId && canAct"
+            />
+          </div>
           <div
             v-else
-            class="h-10 w-10 rounded-full border border-dashed border-[var(--accent-cream)]/15"
+            class="hidden h-10 w-10 rounded-full border border-dashed border-[var(--accent-cream)]/15 md:block"
             aria-hidden="true"
           />
         </template>
       </BlackjackTable>
 
-      <div class="pointer-events-none absolute right-3 top-3 z-10 flex w-64 flex-col gap-2">
+      <div class="pointer-events-none absolute right-2 top-2 z-10 flex w-52 flex-col gap-2 md:w-64">
         <div class="pointer-events-auto">
           <AdvisorPanel
             :intensity="store.settings!.advisor"

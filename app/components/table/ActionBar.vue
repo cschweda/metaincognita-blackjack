@@ -124,7 +124,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           Rebet <kbd class="ml-1 text-[9px] opacity-60">B</kbd>
         </UButton>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center justify-center gap-2">
         <UButton
           size="xs"
           :variant="target === 'main' ? 'solid' : 'outline'"
@@ -205,7 +205,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
 
     <!-- PLAYER TURNS -->
     <template v-else>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap items-center justify-center gap-2">
         <UButton
           v-for="action in ACTION_ORDER"
           :key="action"
