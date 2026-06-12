@@ -99,6 +99,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           color="neutral"
           :disabled="committed + value > bankroll"
           :data-testid="`chip-${value}`"
+          :aria-label="`Add $${value / 100} chip`"
           @click="addChip(value)"
         >
           ${{ value / 100 }}
@@ -130,6 +131,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           :variant="target === 'main' ? 'solid' : 'outline'"
           color="primary"
           data-testid="target-main"
+          aria-label="Bet target: main bet"
           @click="target = 'main'"
         >
           Main {{ mainBet > 0 ? `$${mainBet / 100}` : '' }}
@@ -141,6 +143,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           :variant="target === sb.kind ? 'solid' : 'outline'"
           color="neutral"
           :data-testid="`target-${sb.kind}`"
+          :aria-label="`Bet target: ${sb.label}`"
           @click="target = sb.kind"
         >
           {{ sb.label }} {{ (sideStakes[sb.kind] ?? 0) > 0 ? `$${(sideStakes[sb.kind] ?? 0) / 100}` : '' }}

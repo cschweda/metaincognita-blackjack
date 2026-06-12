@@ -44,6 +44,11 @@ describe('ActionBar — betting', () => {
     await w.find('[data-testid="chip-500"]').trigger('click') // $5 < $10 min
     expect(w.find('[data-testid="deal"]').attributes('disabled')).toBeDefined()
   })
+
+  it('labels chip buttons for screen readers', async () => {
+    const w = await mountSuspended(ActionBar, { props: { ...base, phase: 'betting' } })
+    expect(w.find('[data-testid="chip-2500"]').attributes('aria-label')).toBe('Add $25 chip')
+  })
 })
 
 describe('ActionBar — actions & insurance', () => {

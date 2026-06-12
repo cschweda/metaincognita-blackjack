@@ -13,6 +13,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      htmlAttrs: { lang: 'en' },
       title: 'Blackjack Trainer',
       meta: [
         { name: 'description', content: 'Authentic casino blackjack simulator and trainer — basic strategy, card counting, official-rulebook rules' }

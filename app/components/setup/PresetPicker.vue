@@ -38,7 +38,7 @@ const cards = computed(() => Object.entries(PRESETS)
         <span class="whitespace-nowrap text-xs text-neutral-400">≈{{ card.edge }}% edge<span class="text-neutral-600">*</span></span>
       </div>
       <p
-        class="mt-1 truncate text-[11px] text-neutral-500"
+        class="mt-1 truncate text-[11px] text-neutral-400"
         :title="card.source"
       >
         {{ card.source }}
@@ -59,12 +59,12 @@ const cards = computed(() => Object.entries(PRESETS)
       @click="selected = 'CUSTOM'"
     >
       <span class="font-semibold text-neutral-100">Custom rules…</span>
-      <p class="mt-1 text-[11px] text-neutral-500">
+      <p class="mt-1 text-[11px] text-neutral-400">
         Start from Vegas Strip and change anything
       </p>
     </button>
   </div>
-  <p class="mt-2 text-[11px] text-neutral-600">
+  <p class="mt-2 text-[11px] text-neutral-400">
     *House edge is a model estimate (fixed-composition engine) — it runs slightly high vs published
     casino figures, especially at 1–2 decks. The comparison BETWEEN rule sets is what matters.
   </p>

@@ -27,6 +27,10 @@
   --chip-black: #1a1a1a;
   --chip-purple: #7c3aed;
   --chip-orange: #ea580c;
+
+  /* Dark-only app: solid amber/red buttons need near-black text to clear WCAG AA 4.5:1 —
+     white-on-amber is ~2.3:1. text-inverted resolves this token in @nuxt/ui v4. */
+  --ui-text-inverted: #0a0a0a;
 }
 
 @media (prefers-reduced-motion: reduce) {

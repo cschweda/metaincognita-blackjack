@@ -71,11 +71,11 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
         <table class="border-collapse font-mono">
           <thead>
             <tr>
-              <th class="p-1 text-neutral-500" />
+              <th class="p-1 text-neutral-400" />
               <th
                 v-for="up in BUCKETS"
                 :key="up"
-                class="p-1 text-neutral-500"
+                class="p-1 text-neutral-400"
               >
                 {{ upLabel(up) }}
               </th>
@@ -86,7 +86,7 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
               v-for="row in section.rows"
               :key="row"
             >
-              <th class="p-1 text-right text-neutral-500">
+              <th class="p-1 text-right text-neutral-400">
                 {{ section.label(row) }}
               </th>
               <td
@@ -124,7 +124,7 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
           <tr
             v-for="[action, ev] in detail.evs"
             :key="action"
-            :class="action === detail.action ? 'text-[var(--accent-cream)]' : 'text-neutral-500'"
+            :class="action === detail.action ? 'text-[var(--accent-cream)]' : 'text-neutral-400'"
           >
             <td class="pr-3">
               {{ action }}
@@ -134,7 +134,7 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
         </tbody>
       </table>
     </div>
-    <p class="text-neutral-500">
+    <p class="text-neutral-400">
       H hit · S stand · D double (else hit) · Ds double (else stand) · P split · Rh/Rs/Rp surrender (else hit/stand/split)
     </p>
   </div>

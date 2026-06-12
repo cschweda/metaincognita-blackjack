@@ -160,7 +160,7 @@ const ACTION_LABEL: Record<Action, string> = {
 
     <div class="flex items-center justify-center gap-6">
       <div class="text-center">
-        <p class="mb-1 text-[10px] uppercase text-neutral-500">
+        <p class="mb-1 text-[10px] uppercase text-neutral-400">
           Dealer shows
         </p>
         <PlayingCard
@@ -170,7 +170,7 @@ const ACTION_LABEL: Record<Action, string> = {
         />
       </div>
       <div class="text-center">
-        <p class="mb-1 text-[10px] uppercase text-neutral-500">
+        <p class="mb-1 text-[10px] uppercase text-neutral-400">
           Your hand
         </p>
         <div class="flex">

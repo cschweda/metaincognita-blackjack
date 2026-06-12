@@ -29,12 +29,12 @@ function toggle(id: PersonaId): void {
         />
         <span class="font-semibold text-neutral-100">{{ persona.name }}</span>
       </div>
-      <p class="mt-1 text-[11px] leading-snug text-neutral-500">
+      <p class="mt-1 text-[11px] leading-snug text-neutral-400">
         {{ persona.flavor }}
       </p>
     </button>
   </div>
-  <p class="mt-1 text-[11px] text-neutral-600">
+  <p class="mt-1 text-[11px] text-neutral-400">
     {{ selected.length }}/{{ max }} seats filled — more players = more visible cards per round
   </p>
 </template>

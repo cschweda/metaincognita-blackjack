@@ -58,7 +58,7 @@ function next(): void {
       data-testid="tc-question"
     >
       <div class="text-center">
-        <p class="text-[10px] uppercase text-neutral-500">
+        <p class="text-[10px] uppercase text-neutral-400">
           Running count
         </p>
         <p class="font-mono text-2xl font-bold text-[var(--accent-cream)]">
@@ -66,7 +66,7 @@ function next(): void {
         </p>
       </div>
       <div class="text-center">
-        <p class="mb-1 text-[10px] uppercase text-neutral-500">
+        <p class="mb-1 text-[10px] uppercase text-neutral-400">
           Discard tray ({{ question.decksTotal }} decks)
         </p>
         <div class="relative mx-auto h-20 w-10 overflow-hidden rounded border border-[var(--rail-walnut)] bg-black/40">
@@ -75,7 +75,7 @@ function next(): void {
             :style="{ height: `${trayPct}%` }"
           />
         </div>
-        <p class="mt-1 text-[10px] text-neutral-500">
+        <p class="mt-1 text-[10px] text-neutral-400">
           {{ question.decksRemaining }} decks left
         </p>
       </div>

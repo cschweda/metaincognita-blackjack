@@ -137,7 +137,7 @@ const MTD = MATCH_THE_DEALER_PAYS
             <td class="pr-4 text-neutral-400">
               {{ row.cards }}
             </td>
-            <td :class="row.value > 0 ? 'text-emerald-400' : row.value < 0 ? 'text-red-400' : 'text-neutral-500'">
+            <td :class="row.value > 0 ? 'text-emerald-400' : row.value < 0 ? 'text-red-400' : 'text-neutral-400'">
               {{ row.tag }}
             </td>
           </tr>
@@ -159,7 +159,7 @@ const MTD = MATCH_THE_DEALER_PAYS
         data-testid="deviation-table"
       >
         <thead>
-          <tr class="text-left text-neutral-500">
+          <tr class="text-left text-neutral-400">
             <th class="py-1">
               Play
             </th><th>Threshold</th><th>Action</th>
@@ -209,7 +209,7 @@ const MTD = MATCH_THE_DEALER_PAYS
               :key="variant"
               class="border-t border-neutral-800 align-top"
             >
-              <td class="py-1 pr-3 font-mono text-neutral-500">
+              <td class="py-1 pr-3 font-mono text-neutral-400">
                 {{ variant }}
               </td>
               <td class="py-1">
@@ -234,7 +234,7 @@ const MTD = MATCH_THE_DEALER_PAYS
               :key="decks"
               class="border-t border-neutral-800"
             >
-              <td class="py-1 pr-3 font-mono text-neutral-500">
+              <td class="py-1 pr-3 font-mono text-neutral-400">
                 {{ decks }} decks
               </td>
               <td class="py-1">

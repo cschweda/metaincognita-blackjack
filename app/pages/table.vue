@@ -74,6 +74,21 @@ function backToSetup(): void {
   router.push('/')
 }
 
+watch(canAct, (v) => {
+  if (!v) return
+  void nextTick(() => {
+    if (document.activeElement instanceof HTMLInputElement) return
+    const btn = document.querySelector<HTMLElement>('[data-testid^="act-"]:not([disabled])')
+    btn?.focus()
+  })
+})
+watch(phase, (p) => {
+  if (p !== 'insurance') return
+  void nextTick(() => {
+    document.querySelector<HTMLElement>('[data-testid="decline-insurance"]')?.focus()
+  })
+})
+
 // Keyboard map (spec §6): H/S/D/P/R act, B rebet, Space deal
 const studyMode = ref(false)
 

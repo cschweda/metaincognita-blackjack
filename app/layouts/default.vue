@@ -60,7 +60,7 @@ function subPageBack() {
         </button>
         <span
           v-else
-          class="select-none text-xs text-neutral-600"
+          class="select-none text-xs text-neutral-400"
         >
           <span class="text-[var(--accent-gold)]/70">Blackjack</span> Trainer
         </span>
@@ -84,8 +84,9 @@ function subPageBack() {
           v-for="link in NAV"
           :key="link.to"
           class="flex items-center gap-1.5 text-xs transition-colors"
-          :class="route.path === link.to ? 'text-amber-400' : 'text-neutral-500 hover:text-neutral-300'"
+          :class="route.path === link.to ? 'text-amber-400' : 'text-neutral-400 hover:text-neutral-200'"
           :aria-current="route.path === link.to ? 'page' : undefined"
+          :aria-label="link.label"
           :data-testid="`nav-${link.label.toLowerCase()}`"
           @click="navigateTo(link.to)"
         >
@@ -97,12 +98,12 @@ function subPageBack() {
         </button>
       </div>
       <div class="flex items-center gap-3">
-        <span class="text-[10px] text-neutral-600">v{{ version }} — training simulator; no real-money play</span>
+        <span class="text-[10px] text-neutral-400">v{{ version }} — training simulator; no real-money play</span>
         <a
           href="https://github.com/cschweda/metaincognita-blackjack"
           target="_blank"
           rel="noopener noreferrer"
-          class="flex items-center gap-1.5 text-xs text-neutral-500 transition-colors hover:text-neutral-300"
+          class="flex items-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
         >
           <UIcon
             name="i-simple-icons-github"
