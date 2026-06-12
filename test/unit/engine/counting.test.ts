@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hiLoValue, CountTracker, ILLUSTRIOUS_18, deviationFor } from '../../../app/utils/engine/counting'
+import { hiLoValue, CountTracker, ILLUSTRIOUS_18, FAB_4, deviationFor } from '../../../app/utils/engine/counting'
 import { buildDeck } from '../../../app/utils/engine/cards'
 import type { Card, Suit } from '../../../app/utils/engine/cards'
 
@@ -71,5 +71,39 @@ describe('Illustrious 18 deviations', () => {
   it('splits tens vs 5 at TC ≥ 5 (the table-horror play)', () => {
     expect(deviationFor({ total: 20, soft: false, pair: 10 }, 5, 5)?.play).toBe('split')
     expect(deviationFor({ total: 20, soft: false, pair: 10 }, 5, 4)).toBeNull()
+  })
+})
+
+describe('deviations — Fab 4 (spec §4.8)', () => {
+  const pool = [...ILLUSTRIOUS_18, ...FAB_4]
+
+  it('surrenders 14 vs T at TC ≥ +3, not below', () => {
+    const state = { total: 14, soft: false, pair: null }
+    expect(deviationFor(state, 10, 3, pool)?.play).toBe('surrender')
+    expect(deviationFor(state, 10, 2.9, pool)).toBeNull()
+  })
+
+  it('surrenders 15 vs 9 at TC ≥ +2 and 15 vs A at TC ≥ +1', () => {
+    const state = { total: 15, soft: false, pair: null }
+    expect(deviationFor(state, 9, 2, pool)?.id).toBe('fab-15v9')
+    expect(deviationFor(state, 11, 1, pool)?.id).toBe('fab-15vA')
+  })
+
+  it('reverses 15 vs T to a hit when the count is negative (book surrenders)', () => {
+    const state = { total: 15, soft: false, pair: null }
+    const dev = deviationFor(state, 10, -2, pool)
+    expect(dev?.id).toBe('fab-15vT-keep')
+    expect(dev?.play).toBe('hit')
+  })
+
+  it('default pool stays Illustrious-18-only — Fab 4 must be opted into', () => {
+    expect(deviationFor({ total: 14, soft: false, pair: null }, 10, 5)).toBeNull()
+  })
+
+  it('I18 15vT-stand takes priority over fab-15vT-keep at high counts in the combined pool', () => {
+    const state = { total: 15, soft: false, pair: null }
+    const dev = deviationFor(state, 10, 4, pool)
+    expect(dev?.id).toBe('15vT-stand')
+    expect(dev?.play).toBe('stand')
   })
 })

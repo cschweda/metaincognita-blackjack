@@ -44,7 +44,7 @@ export interface Deviation {
   soft: boolean
   pair: Bucket | null
   up: Bucket
-  play: 'stand' | 'hit' | 'double' | 'split' | 'take-insurance'
+  play: 'stand' | 'hit' | 'double' | 'split' | 'take-insurance' | 'surrender'
 }
 
 /** Illustrious 18 (Don Schlesinger), Hi-Lo, multi-deck ordering. Advanced mode only (spec §6). */
@@ -69,12 +69,22 @@ export const ILLUSTRIOUS_18: Deviation[] = [
   { id: '13v3-hit', description: 'Hit 13 vs 3 in negative counts', maxTrueCount: -2, total: 13, soft: false, pair: null, up: 3, play: 'hit' }
 ]
 
+/** Fab 4 surrender deviations (Schlesinger), Hi-Lo multi-deck S17 thresholds — same basis
+ *  as the Illustrious 18 table above. Only meaningful when rules.surrender === 'late'. */
+export const FAB_4: Deviation[] = [
+  { id: 'fab-14vT', description: 'Surrender 14 vs T', minTrueCount: 3, total: 14, soft: false, pair: null, up: 10, play: 'surrender' },
+  { id: 'fab-15v9', description: 'Surrender 15 vs 9', minTrueCount: 2, total: 15, soft: false, pair: null, up: 9, play: 'surrender' },
+  { id: 'fab-15vA', description: 'Surrender 15 vs A', minTrueCount: 1, total: 15, soft: false, pair: null, up: 11, play: 'surrender' },
+  { id: 'fab-15vT-keep', description: 'Hit 15 vs T in a negative shoe (book surrenders)', maxTrueCount: -1, total: 15, soft: false, pair: null, up: 10, play: 'hit' }
+]
+
 export function deviationFor(
   state: { total: number, soft: boolean, pair: Bucket | null },
   up: Bucket,
-  trueCount: number
+  trueCount: number,
+  pool: Deviation[] = ILLUSTRIOUS_18
 ): Deviation | null {
-  for (const dev of ILLUSTRIOUS_18) {
+  for (const dev of pool) {
     if (dev.id === 'insurance') continue // insurance is queried separately by the advisor
     if (dev.up !== up || dev.total !== state.total || dev.soft !== state.soft) continue
     if (dev.pair !== null && dev.pair !== state.pair) continue
