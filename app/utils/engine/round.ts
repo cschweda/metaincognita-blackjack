@@ -4,8 +4,11 @@ import type { Action, PlayHand } from './hand'
 import { handTotal, isBlackjack, isBust, legalActions, newHand } from './hand'
 import { dealerPlay } from './dealer'
 import { Shoe } from './shoe'
-import { mulberry32, randomSeed } from './rng'
-import type { RNG } from './rng'
+import { statefulMulberry32, randomSeed } from './rng'
+import type { RNG, StatefulRNG } from './rng'
+import type { GameSnapshot } from './serializeTypes'
+import { SNAPSHOT_VERSION } from './serializeTypes'
+import { cloneRules } from './rules'
 import {
   evaluate21Plus3, evaluateBuster, evaluateLuckyLadies, evaluateMatchTheDealer
 } from './sideBets'
@@ -67,13 +70,16 @@ export class BlackjackGame {
   spots: SpotState[] = []
   dealerCards: Card[] = []
   holeRevealed = false
-  readonly shoe: CardSource
+  // restore() reassigns shoe — must not be readonly
+  shoe: CardSource
 
+  private rng: StatefulRNG
   private listeners: Array<(e: GameEvent) => void> = []
 
   constructor(public readonly rules: Readonly<RuleSet>, opts: { seed?: number, rng?: RNG, shoe?: CardSource } = {}) {
-    const rng = opts.rng ?? mulberry32(opts.seed ?? randomSeed())
-    this.shoe = opts.shoe ?? new Shoe(this.rules.decks, this.rules.penetration, rng)
+    this.rng = statefulMulberry32(opts.seed ?? randomSeed())
+    const drive: RNG = opts.rng ?? this.rng.next
+    this.shoe = opts.shoe ?? new Shoe(this.rules.decks, this.rules.penetration, drive)
   }
 
   get dealerUp(): Card | null {
@@ -472,6 +478,37 @@ export class BlackjackGame {
     ]
     this.shoe.discard(all)
     this.setPhase('complete')
+  }
+
+  /** Serializable mid-round state. Listeners are NOT serialized — re-subscribe after restore. */
+  snapshot(): GameSnapshot {
+    if (!(this.shoe instanceof Shoe)) throw new Error('snapshot requires a real Shoe (test CardSources are not serializable)')
+    return JSON.parse(JSON.stringify({
+      v: SNAPSHOT_VERSION,
+      rules: this.rules,
+      rngState: this.rng.state(),
+      shoe: this.shoe.snapshot(),
+      phase: this.phase,
+      spots: this.spots,
+      dealerCards: this.dealerCards,
+      holeRevealed: this.holeRevealed
+    })) as GameSnapshot
+  }
+
+  static restore(snap: GameSnapshot): BlackjackGame {
+    if (snap.v !== SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version: ${snap.v}`)
+    const rules = cloneRules(snap.rules)
+    const game = new BlackjackGame(rules, { seed: snap.rngState })
+    // The constructor above built a throwaway shoe, consuming RNG. Rewire BOTH the rng and
+    // the shoe to the captured state so the restored stream matches the uninterrupted
+    // timeline exactly (Shoe.restore consumes zero RNG — Task 1 erratum).
+    game.rng = statefulMulberry32(snap.rngState)
+    game.shoe = Shoe.restore(snap.shoe, game.rng.next)
+    game.phase = snap.phase
+    game.spots = JSON.parse(JSON.stringify(snap.spots)) as SpotState[]
+    game.dealerCards = snap.dealerCards.map(c => ({ ...c }))
+    game.holeRevealed = snap.holeRevealed
+    return game
   }
 
   private requireSpot(spotId: number): SpotState {
