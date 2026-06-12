@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useBlackjackStore, STORAGE_KEY } from '../../app/stores/useBlackjackStore'
+import { useBlackjackStore, STORAGE_KEY, TRAINING_KEY } from '../../app/stores/useBlackjackStore'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
 
 describe('useBlackjackStore', () => {
@@ -16,7 +16,10 @@ describe('useBlackjackStore', () => {
       mode: 'quick',
       speed: 'normal',
       flair: true,
-      botIds: ['bea']
+      botIds: ['bea'],
+      advisor: 'coach',
+      count: 'shown',
+      advancedDeviations: false
     }, 100_000)
     return store
   }
@@ -94,5 +97,73 @@ describe('useBlackjackStore', () => {
     store.clearAll()
     expect(store.sessionActive).toBe(false)
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  it('records decisions into lifetime adherence and a machine-keyed mistake bag', () => {
+    const store = started()
+    store.recordDecision({
+      handIndex: 0, cards: ['10♠', '6♣'], total: 16, soft: false, pair: false, pairBucket: null,
+      upBucket: 10, dealerUp: '10♦', action: 'stand', book: 'hit', deviationId: null, deviationPlay: null,
+      correct: false, costCents: 540, evs: { hit: -0.41, stand: -0.54 }, rc: 2, tc: 0.5, category: 'hard'
+    })
+    expect(store.training.adherence.hard).toEqual({ decisions: 1, correct: 0 })
+    expect(store.training.mistakeBag['hard|16|10']).toBe(1)
+  })
+
+  it('training stats survive clearAll (lifetime key)', () => {
+    const store = started()
+    store.recordDrillBest('strategy-flash', 7)
+    store.clearAll()
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem(TRAINING_KEY)).not.toBeNull()
+
+    setActivePinia(createPinia())
+    const fresh = useBlackjackStore()
+    expect(fresh.training.drillBests['strategy-flash']).toBe(7)
+  })
+
+  it('recordCountCheck logs capped entries and recordDrillBest keeps the max', () => {
+    const store = started()
+    store.recordCountCheck(5, 7)
+    expect(store.training.countChecks).toHaveLength(1)
+    expect(store.training.countChecks[0]).toMatchObject({ entered: 5, actual: 7 })
+    store.recordDrillBest('count-singles', 3)
+    store.recordDrillBest('count-singles', 2)
+    expect(store.training.drillBests['count-singles']).toBe(3)
+  })
+
+  it('persists countState with the session and backfills training defaults on restore', () => {
+    const store = started()
+    store.setCountState({ running: 4, cardsSeen: 30 })
+    store.persist()
+
+    setActivePinia(createPinia())
+    const fresh = useBlackjackStore()
+    expect(fresh.restore()).toBe(true)
+    expect(fresh.countState).toEqual({ running: 4, cardsSeen: 30 })
+    expect(fresh.settings!.advisor).toBe('coach')
+  })
+
+  it('backfills training settings on old payloads that lack them', () => {
+    const store = started()
+    store.persist()
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
+    delete raw.settings.advisor
+    delete raw.settings.count
+    delete raw.settings.advancedDeviations
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw))
+
+    setActivePinia(createPinia())
+    const fresh = useBlackjackStore()
+    expect(fresh.restore()).toBe(true)
+    expect(fresh.settings!.advisor).toBe('feedback')
+    expect(fresh.settings!.count).toBe('self-check')
+    expect(fresh.settings!.advancedDeviations).toBe(false)
+  })
+
+  it('records insurance decisions into the insurance category', () => {
+    const store = started()
+    store.recordInsuranceDecision({ took: null, book: 'decline', correct: true, rc: 0, tc: 0 })
+    expect(store.training.adherence.insurance).toEqual({ decisions: 1, correct: 1 })
   })
 })

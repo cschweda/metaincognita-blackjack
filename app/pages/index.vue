@@ -40,7 +40,10 @@ function start(): void {
     mode: mode.value,
     speed: speed.value,
     flair: flair.value,
-    botIds: trimmedBots
+    botIds: trimmedBots,
+    advisor: 'feedback',
+    count: 'off',
+    advancedDeviations: false
   }, bankrollChoice.value)
   router.push('/table')
 }

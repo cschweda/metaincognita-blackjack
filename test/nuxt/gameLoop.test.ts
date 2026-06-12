@@ -8,7 +8,7 @@ import type { SessionSettings } from '../../app/stores/useBlackjackStore'
 function settings(overrides: Partial<SessionSettings> = {}): SessionSettings {
   const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
   rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
-  return { rules, mode: 'quick', speed: 'normal', flair: true, botIds: [], ...overrides }
+  return { rules, mode: 'quick', speed: 'normal', flair: true, botIds: [], advisor: 'feedback' as const, count: 'off' as const, advancedDeviations: false, ...overrides }
 }
 
 describe('useGameLoop (quick mode)', () => {

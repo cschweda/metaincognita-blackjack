@@ -20,7 +20,7 @@ describe('table page integration (quick mode, seeded)', () => {
     const loop = useGameLoop()
     const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
     rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
-    loop.startSession({ rules, mode: 'quick', speed: 'normal', flair: false, botIds: ['bea'] }, 100_000, 21)
+    loop.startSession({ rules, mode: 'quick', speed: 'normal', flair: false, botIds: ['bea'], advisor: 'feedback', count: 'off', advancedDeviations: false }, 100_000, 21)
 
     const page = await mountSuspended(TablePage)
     // bet $25 and deal
