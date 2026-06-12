@@ -213,9 +213,11 @@ Inside the class:
     }
   }
 
-  /** Rebuild a shoe mid-state. The provided RNG drives FUTURE shuffles only. */
+  /** Rebuild a shoe mid-state WITHOUT consuming any RNG — restore must preserve the
+   *  stream so post-restore shuffles match the uninterrupted timeline (erratum: the
+   *  original draft constructed normally, wasting a full shuffle's worth of RNG calls). */
   static restore(snap: ShoeSnapshot, rng: RNG): Shoe {
-    const shoe = new Shoe(snap.decks as 1 | 2 | 4 | 6 | 8, snap.penetration, rng)
+    const shoe = new Shoe(snap.decks, snap.penetration, rng, true) // skipInit
     shoe.cards = snap.cards.map(c => ({ ...c }))
     shoe.rack = snap.rack.map(c => ({ ...c }))
     shoe.burned = snap.burned.map(c => ({ ...c }))
@@ -225,7 +227,7 @@ Inside the class:
   }
 ```
 
-(`decks`/`penetration` are `private readonly` constructor params — confirm they're declared as `private readonly decks: number` so the cast above isn't needed; adjust typing minimally if the constructor uses the literal-union type. Static methods may assign private fields of their own class — TypeScript allows this.)
+**Constructor change required for skipInit:** give the Shoe constructor an internal 4th parameter — `constructor(private readonly decks: number, private readonly penetration: number, private readonly rng: RNG, skipInit = false)` with the body `if (!skipInit) this.freshShoe()`. Normal construction is unchanged (all existing call sites pass 3 args); the restore path skips the wasted shuffle entirely. Static methods may assign private mutable fields of their own class (`cards`, `rack`, `burned`, `reached`, `cutIndex` are plain `private`, not readonly) — TypeScript allows this. Also append a shoe test: restoring must consume ZERO rng calls — wrap a counting RNG (`let calls = 0; const counted = () => { calls++; return rng() }`), call `Shoe.restore(snap, counted)`, assert `calls === 0`.
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -318,6 +320,31 @@ describe('BlackjackGame snapshot/restore', () => {
     const snap = g.snapshot()
     expect(() => BlackjackGame.restore({ ...snap, v: 999 } as unknown as GameSnapshot)).toThrow(/version/)
   })
+
+  it('preserves the RNG stream across restore — post-restore SHUFFLES match the original timeline', () => {
+    const rules = cloneRules(PRESETS.SINGLE_DECK_65!) // 1 deck, pen 0.6 → reshuffles arrive within a few rounds
+    rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    const a = new BlackjackGame(rules, { seed: 2718 })
+    const playRound = (g: BlackjackGame) => {
+      g.beginRound([{ spotId: 0, mainBet: 1000 }])
+      if (g.phase === 'insurance') {
+        g.insuranceDecision(0, null)
+        g.finishInsurance()
+      }
+      while (g.phase === 'playerTurns') {
+        g.act(0, g.legalFor(0).includes('stand') ? 'stand' : g.legalFor(0)[0]!)
+      }
+      return g.spots.flatMap(s => s.hands.map(h => h.netResult))
+    }
+    playRound(a)
+    const b = BlackjackGame.restore(a.snapshot())
+    let crossedShuffle = false
+    for (let i = 0; i < 30 && !crossedShuffle; i++) {
+      crossedShuffle = a.shoe.needsShuffle() // true → the NEXT beginRound reshuffles in both games
+      expect(playRound(b)).toEqual(playRound(a))
+    }
+    expect(crossedShuffle).toBe(true) // the comparison genuinely crossed a shuffle boundary
+  })
 })
 ```
 
@@ -394,8 +421,11 @@ import { cloneRules } from './rules'
     if (snap.v !== SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version: ${snap.v}`)
     const rules = cloneRules(snap.rules)
     const game = new BlackjackGame(rules, { seed: snap.rngState })
-    // seed path created rng at the captured state; rebuild the shoe from its snapshot
-    ;(game as { shoe: CardSource }).shoe = Shoe.restore(snap.shoe, game.rng.next)
+    // The constructor above built a throwaway shoe, consuming RNG. Rewire BOTH the rng and
+    // the shoe to the captured state so the restored stream matches the uninterrupted
+    // timeline exactly (Shoe.restore consumes zero RNG — Task 1 erratum).
+    game.rng = statefulMulberry32(snap.rngState)
+    game.shoe = Shoe.restore(snap.shoe, game.rng.next)
     game.phase = snap.phase
     game.spots = JSON.parse(JSON.stringify(snap.spots)) as SpotState[]
     game.dealerCards = snap.dealerCards.map(c => ({ ...c }))
@@ -404,7 +434,7 @@ import { cloneRules } from './rules'
   }
 ```
 
-Note `readonly shoe` must become assignable for restore: change the field declaration from `readonly shoe: CardSource` to `shoe: CardSource` (public surface otherwise unchanged) OR keep readonly and assign via the constructor — simplest correct route: add a private constructor option `{ restoredShoe?: CardSource }`. Choose ONE and keep the cast-free version; if you keep `readonly`, extend the constructor opts with `shoe` (it already exists!) — so `restore` can do `new BlackjackGame(rules, { seed: snap.rngState, shoe: undefined })` then... it cannot, because the Shoe needs the game's own rng. Resolution: construct the stateful RNG first inside `restore` via a second private static path is over-engineering — **drop `readonly` from `shoe`** and assign directly (`game.shoe = Shoe.restore(snap.shoe, ...)`) using a `// restore-only reassignment` comment. The `rng` field needs a getter for restore: add `private readonly rng` plus expose nothing — `restore` is a static member of the same class, so `game.rng` is accessible. Remove the cast in the listing above accordingly.
+Field mutability for restore (both are restore-only reassignments, comment them as such): `readonly shoe: CardSource` → `shoe: CardSource`, and the new `rng` field is `private rng: StatefulRNG` (NOT readonly). `restore` is a static member of the same class, so private access is legal.
 
 - [ ] **Step 4: Run to verify pass**
 

@@ -19,9 +19,10 @@ export class Shoe {
   constructor(
     private readonly decks: number,
     private readonly penetration: number,
-    private readonly rng: RNG
+    private readonly rng: RNG,
+    skipInit = false
   ) {
-    this.freshShoe()
+    if (!skipInit) this.freshShoe()
   }
 
   private get totalCards(): number {
@@ -110,7 +111,7 @@ export class Shoe {
 
   /** Rebuild a shoe mid-state. The provided RNG drives FUTURE shuffles only. */
   static restore(snap: ShoeSnapshot, rng: RNG): Shoe {
-    const shoe = new Shoe(snap.decks, snap.penetration, rng)
+    const shoe = new Shoe(snap.decks, snap.penetration, rng, true)
     shoe.cards = snap.cards.map(c => ({ ...c }))
     shoe.rack = snap.rack.map(c => ({ ...c }))
     shoe.burned = snap.burned.map(c => ({ ...c }))

@@ -88,4 +88,18 @@ describe('Shoe', () => {
     expect(Array.from({ length: 30 }, () => b.draw()))
       .toEqual(Array.from({ length: 30 }, () => a.draw()))
   })
+
+  it('restore consumes zero RNG calls (stream continuity)', () => {
+    const a = makeShoe(2, 0.75, 123)
+    for (let i = 0; i < 20; i++) a.draw()
+    const snap = a.snapshot()
+    let calls = 0
+    const base = mulberry32(999)
+    const counted = () => {
+      calls++
+      return base()
+    }
+    Shoe.restore(snap, counted)
+    expect(calls).toBe(0)
+  })
 })
