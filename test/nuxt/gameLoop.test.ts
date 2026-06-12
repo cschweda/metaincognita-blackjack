@@ -101,4 +101,13 @@ describe('useGameLoop (quick mode)', () => {
     expect(loop.announcements.value.length).toBeGreaterThan(0)
     expect(loop.liveText.value.length).toBeGreaterThan(0)
   })
+
+  it('exposes hasGame and a moving trayFill', () => {
+    const loop = useGameLoop()
+    expect(loop.hasGame.value).toBe(false)
+    loop.startSession(settings(), 100_000, 7)
+    expect(loop.hasGame.value).toBe(true)
+    loop.beginRound(1000, {})
+    expect(loop.trayFill.value).toBeGreaterThan(0) // burn card at minimum
+  })
 })

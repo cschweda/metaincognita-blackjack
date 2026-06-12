@@ -54,6 +54,9 @@ const spotsView = ref<SpotView[]>([])
 const announcements = ref<Announcement[]>([])
 const liveText = ref('')
 const queueIdle = ref(true)
+const trayFill = ref(0)
+/** Bumped whenever the module-level game is attached/detached — reactive bridge for computeds. */
+const gameGen = ref(0)
 let announceId = 0
 
 const DELAY_BASE: Record<string, number> = {
@@ -81,6 +84,7 @@ function delayFor(e: GameEvent): number {
 export function __resetGameLoopForTests(): void {
   unsubscribe?.()
   game = null
+  gameGen.value++
   unsubscribe = null
   roundCounter = 0
   pumping = false
@@ -92,6 +96,14 @@ export function __resetGameLoopForTests(): void {
   announcements.value = []
   liveText.value = ''
   queueIdle.value = true
+  trayFill.value = 0
+}
+
+function updateTrayFill(): void {
+  const store = useBlackjackStore()
+  if (!game || !store.settings) return
+  const shoe = game.shoe as { discardCount?: () => number }
+  trayFill.value = shoe.discardCount ? shoe.discardCount() / (store.settings.rules.decks * 52) : 0
 }
 
 // ── presentation ──────────────────────────────────────────────────────────────
@@ -143,6 +155,7 @@ function applyEvent(e: GameEvent): void {
       break
     case 'shuffle':
       pushAnnouncement('Shuffling the shoe')
+      updateTrayFill()
       break
     case 'card-dealt': {
       if (e.to === 'dealer-up' || e.to === 'dealer-hole' || e.to === 'dealer-draw') {
@@ -160,6 +173,7 @@ function applyEvent(e: GameEvent): void {
         }
       }
       syncAmountsFromEngine()
+      updateTrayFill()
       break
     }
     case 'hole-revealed': {
@@ -364,6 +378,7 @@ function snapshotToStore(): void {
 function attach(g: BlackjackGame): void {
   unsubscribe?.()
   game = g
+  gameGen.value++
   unsubscribe = g.on((e) => {
     eventQueue.push(e)
   })
@@ -373,7 +388,12 @@ export function useGameLoop() {
   const store = useBlackjackStore()
 
   const heroSpotId = computed(() => heroSpot())
+  const hasGame = computed(() => {
+    void gameGen.value
+    return game !== null
+  })
   const legalActions = computed<Action[]>(() => {
+    void gameGen.value
     if (!game || !queueIdle.value || game.phase !== 'playerTurns') return []
     const spot = game.spots.find(s => s.spotId === heroSpot())
     if (!spot) return []
@@ -389,6 +409,7 @@ export function useGameLoop() {
   const inPlay = computed(() => {
     // amounts come from engine state; the presented phase/queue refs make this reactive
     void queueIdle.value
+    void gameGen.value
     if (!game || phase.value === 'complete' || phase.value === 'betting') return 0
     const spot = game.spots.find(s => s.spotId === heroSpot())
     if (!spot) return 0
@@ -452,6 +473,7 @@ export function useGameLoop() {
       quip: null
     }))
     queueIdle.value = true
+    updateTrayFill()
     pushAnnouncement('Table restored — your move')
   }
 
@@ -497,13 +519,14 @@ export function useGameLoop() {
   function endSession(): void {
     unsubscribe?.()
     game = null
+    gameGen.value++
     store.clearAll()
     resetPresentation()
   }
 
   return {
-    phase, dealerRow, spotsView, announcements, liveText, queueIdle,
-    canAct, legalActions, heroSpotId, inPlay,
+    phase, dealerRow, spotsView, announcements, liveText, queueIdle, trayFill,
+    canAct, legalActions, heroSpotId, inPlay, hasGame,
     startSession, restoreSession, beginRound, act, heroInsurance, endSession
   }
 }
