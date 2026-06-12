@@ -19,7 +19,6 @@ function totalLabel(cards: { rank: number, suit: string }[]): string {
   const t = handTotal(cards as Parameters<typeof handTotal>[0])
   return t.soft ? `soft ${t.total}` : `${t.total}`
 }
-
 </script>
 
 <template>
