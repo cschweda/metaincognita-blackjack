@@ -35,7 +35,7 @@ function time(at: number): string {
 
     <p
       v-if="rounds.length === 0"
-      class="rounded-lg border border-dashed border-neutral-800 p-6 text-center text-sm text-neutral-500"
+      class="rounded-lg border border-dashed border-neutral-800 p-6 text-center text-sm text-neutral-400"
       data-testid="history-empty"
     >
       No rounds yet — play a few hands and your decisions land here, graded against the book.
@@ -49,7 +49,7 @@ function time(at: number): string {
     >
       <header class="flex items-baseline justify-between gap-2">
         <span class="font-semibold text-neutral-200">Round {{ round.round }}</span>
-        <span class="text-xs text-neutral-500">{{ time(round.at) }}</span>
+        <span class="text-xs text-neutral-400">{{ time(round.at) }}</span>
         <span
           class="ml-auto font-mono font-semibold"
           :class="heroNet(round) > 0 ? 'text-emerald-400' : heroNet(round) < 0 ? 'text-red-400' : 'text-neutral-400'"
@@ -71,11 +71,11 @@ function time(at: number): string {
           :key="hi"
           class="flex flex-wrap items-center gap-1.5 text-xs"
         >
-          <span :class="spot.occupant === 'hero' ? 'font-semibold text-[var(--accent-gold)]' : 'text-neutral-500'">
+          <span :class="spot.occupant === 'hero' ? 'font-semibold text-[var(--accent-gold)]' : 'text-neutral-400'">
             {{ spot.occupant === 'hero' ? 'You' : spot.occupant }}
           </span>
           <span class="font-mono text-neutral-300">{{ hand.cards.join(' ') }}</span>
-          <span class="text-neutral-500">${{ hand.bet / 100 }}</span>
+          <span class="text-neutral-400">${{ hand.bet / 100 }}</span>
           <span
             class="rounded px-1 py-0.5 text-[9px] font-bold"
             :class="OUTCOME_BADGE[hand.outcome]?.cls"
@@ -83,7 +83,7 @@ function time(at: number): string {
         </div>
         <p
           v-if="spot.sideBets.length"
-          class="mt-0.5 text-[11px] text-neutral-500"
+          class="mt-0.5 text-[11px] text-neutral-400"
         >
           Side: {{ spot.sideBets.map(b => `${b.name} ${money(b.net)}`).join(' · ') }}
         </p>
@@ -106,15 +106,15 @@ function time(at: number): string {
             <span class="text-neutral-400">{{ d.action }}</span>
             <span
               v-if="!d.correct"
-              class="text-neutral-500"
+              class="text-neutral-400"
             >book: {{ d.book }}<template v-if="d.costCents > 0"> · cost ${{ (d.costCents / 100).toFixed(2) }}</template></span>
             <span
               v-if="d.deviationId"
               class="rounded bg-purple-900 px-1 text-[9px] uppercase text-purple-200"
             >count call</span>
-            <span class="ml-auto font-mono text-neutral-600">RC {{ d.rc > 0 ? '+' : '' }}{{ d.rc }} · TC {{ d.tc.toFixed(1) }}</span>
+            <span class="ml-auto font-mono text-neutral-400">RC {{ d.rc > 0 ? '+' : '' }}{{ d.rc }} · TC {{ d.tc.toFixed(1) }}</span>
           </p>
-          <details class="mt-0.5 text-neutral-500">
+          <details class="mt-0.5 text-neutral-400">
             <summary class="cursor-pointer text-[11px]">
               EV table
             </summary>
@@ -141,7 +141,7 @@ function time(at: number): string {
         >
           <span :class="round.heroInsurance.correct ? 'text-emerald-400' : 'text-red-400'">{{ round.heroInsurance.correct ? '✓' : '✗' }}</span>
           <span class="ml-1.5 text-neutral-400">insurance: {{ round.heroInsurance.took === null ? 'declined' : round.heroInsurance.took === 'even-money' ? 'even money' : `$${round.heroInsurance.took / 100}` }}</span>
-          <span class="ml-1.5 text-neutral-500">(book: {{ round.heroInsurance.book }})</span>
+          <span class="ml-1.5 text-neutral-400">(book: {{ round.heroInsurance.book }})</span>
         </p>
       </div>
     </article>

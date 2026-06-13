@@ -51,7 +51,7 @@ function money(cents: number): string {
 
     <section class="grid gap-3 sm:grid-cols-3">
       <div class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-        <p class="text-xs uppercase tracking-wide text-neutral-500">
+        <p class="text-xs uppercase tracking-wide text-neutral-400">
           Book adherence
         </p>
         <p
@@ -60,34 +60,34 @@ function money(cents: number): string {
         >
           {{ overall.pct }}%
         </p>
-        <p class="text-xs text-neutral-500">
+        <p class="text-xs text-neutral-400">
           {{ overall.decisions }} graded decisions
         </p>
       </div>
       <div class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-        <p class="text-xs uppercase tracking-wide text-neutral-500">
+        <p class="text-xs uppercase tracking-wide text-neutral-400">
           EV lost to mistakes
         </p>
         <p class="mt-1 text-2xl font-bold text-red-400">
           ${{ (evLost / 100).toFixed(2) }}
         </p>
-        <p class="text-xs text-neutral-500">
+        <p class="text-xs text-neutral-400">
           vs actual P&L {{ money(pnl) }} — variance is loud, mistakes are quiet
         </p>
       </div>
       <div class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-        <p class="text-xs uppercase tracking-wide text-neutral-500">
+        <p class="text-xs uppercase tracking-wide text-neutral-400">
           Count accuracy
         </p>
         <p class="mt-1 text-2xl font-bold text-[var(--accent-cream)]">
           {{ counts.total === 0 ? '—' : `${Math.round((counts.exact / counts.total) * 100)}%` }}
         </p>
-        <p class="text-xs text-neutral-500">
+        <p class="text-xs text-neutral-400">
           {{ counts.total }} checks · {{ counts.withinOne }} within ±1
         </p>
         <p
           v-if="counts.total > 10"
-          class="text-xs text-neutral-500"
+          class="text-xs text-neutral-400"
         >
           trend: last 10 at {{ Math.round((recentCounts.exact / Math.max(1, recentCounts.total)) * 100) }}%
         </p>
@@ -123,7 +123,7 @@ function money(cents: number): string {
         </h2>
         <p
           v-if="mistakes.length === 0"
-          class="mt-2 text-xs text-neutral-500"
+          class="mt-2 text-xs text-neutral-400"
         >
           Clean sheet so far.
         </p>
@@ -154,7 +154,7 @@ function money(cents: number): string {
             stroke-width="1.5"
           />
         </svg>
-        <p class="text-xs text-neutral-500">
+        <p class="text-xs text-neutral-400">
           {{ store.history.length }} rounds · now ${{ (store.bankroll / 100).toLocaleString() }}
         </p>
       </div>
@@ -167,7 +167,7 @@ function money(cents: number): string {
         </h2>
         <p
           v-if="ledger.length === 0"
-          class="mt-2 text-xs text-neutral-500"
+          class="mt-2 text-xs text-neutral-400"
         >
           No side bets placed — the book approves.
         </p>
@@ -200,7 +200,7 @@ function money(cents: number): string {
         </h2>
         <p
           v-if="bots.length === 0"
-          class="mt-2 text-xs text-neutral-500"
+          class="mt-2 text-xs text-neutral-400"
         >
           No companions this session.
         </p>
