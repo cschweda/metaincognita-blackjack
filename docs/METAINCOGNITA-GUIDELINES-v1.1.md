@@ -1,8 +1,10 @@
 # Metaincognita Guidelines
 
 **The standard for every simulator in the Metaincognita casino suite.**
-Version: **1.0** · Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
+Version: **1.1** · Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
 metaincognita.com umbrella repo when it exists) · Last revised: 2026-06-13
+
+> **v1.1 (2026-06-13):** added the render-verification discipline (§4 — browser-smoke every UI phase; test display logic against *real* engine output, never hand-made fixtures); added slot-machine visual conventions (§5) and **slots** as a canonical reference (§2.4, §8); recorded `app/engine/` as an accepted engine path (§3).
 
 Metaincognita is a family of single-player casino simulators — Hold'em, Video Poker, Flameout,
 Craps, Pachinko, Slots, Blackjack, and whatever comes next — built so that learning the real
@@ -100,9 +102,11 @@ The interactive teaching loop, identical across the suite:
 
 - Primary sources committed to `docs/` and cited where used.
 - Engine-computed numbers are **verified by statistical simulation** against theory
-  (≥100k seeded rounds within ~3σ) *(blackjack's 200k-round suite; craps' convergence
-  tests; flameout's EV proofs)* and **pinned against canonical published references**
-  cell-for-cell where they exist *(blackjack's basic-strategy chart pins)*.
+  (≥100k seeded rounds within ~3–3.5σ) *(blackjack's 200k-round suite; craps' convergence
+  tests; flameout's EV proofs; slots' 5M-cycle floor verify at 3.5σ over the full exact-
+  enumeration cycle)* and **pinned against canonical published references**
+  cell-for-cell where they exist *(blackjack's basic-strategy chart pins; slots' frozen
+  per-machine RTP/HF values reproduced bit-for-bit in tests)*.
 - When a model is an estimate, the UI says so *(blackjack's "house edge is a model
   estimate" footnote)*.
 
@@ -144,9 +148,9 @@ simulators.)*
 2. **Spec, then plan.** Brainstorm to a written design spec in `docs/superpowers/specs/`;
    derive implementation plans with complete code; execute task-by-task with per-task review
    *(blackjack's three-plan history is the template)*.
-3. **Engine before UI.** A pure-TypeScript, framework-free engine under `app/utils/engine/`
-   (or `app/utils/` for simpler games) — TDD throughout, simulation-verified before a single
-   component exists.
+3. **Engine before UI.** A pure-TypeScript, framework-free engine under `app/engine/` or
+   `app/utils/engine/` (or `app/utils/` for simpler games) — TDD throughout,
+   simulation-verified before a single component exists.
 4. **Game UI second.** Setup screen → playable table → persistence. The casino-procedure vs
    quick-play toggle is **purely presentational** — pacing must never change engine behavior.
 5. **Trainer surfaces third.** Advisor, feedback, history, analysis, learn, drills.
@@ -176,8 +180,20 @@ simulators.)*
 - **Computed, not transcribed.** Where feasible, strategy charts, edges, and distributions
   are derived by the engine and *pinned* against published references in tests — the app
   must be able to explain its own numbers.
+- **Trust engine output, not fixtures.** Test display/summary logic against the engine's
+  *actual* emitted shapes, not hand-constructed inputs — a convenient fixture can encode the
+  wrong assumption about a field and pass green while production is wrong *(slots: a win
+  summary read `symbols.length` as the match count, but the line evaluator fills the whole
+  payline, so a 3-of-a-kind rendered as "5 Aces" and highlighted non-winning cells; the
+  hand-made test rows had hidden it)*.
 - **Quality gates.** `test` (unit + component), `lint`, `typecheck` green before every
   commit; Playwright E2E for the money paths; axe-clean WCAG 2.1 AA on every user route.
+  **Green unit tests do not prove the app renders.** Finish every UI phase with a live
+  **browser smoke** — drive the real app, watch the console, inspect the rendered DOM (and
+  for slot/grid surfaces, confirm the highlighted result matches the engine's scored outcome
+  cell-for-cell). Nuxt auto-import and runtime wiring fail *silently* in SFC-import unit
+  tests *(slots: `resolveComponent` inside a computed blanked every reel surface while 240+
+  tests stayed green; the same smoke later caught the fixture bug above)*.
 - **Conventional commits, no AI attribution trailers.** Semver + Keep-a-Changelog.
 
 ## 5. UI standard
@@ -204,6 +220,14 @@ system, typography, layout, and component patterns. Summary of the non-negotiabl
   `neutral-400` on dark surfaces), `prefers-reduced-motion` globally disarms animation.
 - **Mobile**: the game stays playable at 390px; secondary actors collapse to status chips
   *(blackjack's bot-chips strip)*.
+- **Slot/machine games** have their own machine-face conventions, canonical in **slots**:
+  pictorial symbol icons from a shared filled-duotone registry (royals/bars/sevens as styled
+  type, never raw codes); reels that actually spin (vertical scroll, staggered ease-out stop,
+  motion-blur, instant snap under `prefers-reduced-motion`); winning paylines **drawn across
+  the face** with glowing cells and left-gutter line numbers; a result that **holds until the
+  next spin** (gross win + current bankroll + literal per-line chips + a bankroll sparkline);
+  and a lit per-machine marquee (game name + theme emblem). Credits always show beside real
+  dollars with a denomination tag, so the credits↔money sleight is never hidden.
 
 ## 6. Brand & social assets
 
@@ -254,6 +278,8 @@ system, typography, layout, and component patterns. Summary of the non-negotiabl
 | History research pipeline (notes → essay), cultural register | **pachinko** (`docs/appendix-a-history.md`) |
 | Study mode, ranked advisor, sim-verified payouts, disclaimer text | **craps** |
 | Training formula end-to-end (graded decisions → analysis → mistake-seeded drills), event-paced engine boundary, lifetime training stats, E2E suite, a11y pass, badges, these guidelines | **blackjack** |
+| Reel/machine visuals — icon registry, spinning reels, drawn paylines + glow, held result bar with bankroll sparkline, per-machine marquee, denomination tag; render-verification browser smoke | **slots** |
+| Exact-enumeration math + computed-never-asserted RTP (every displayed figure traces to `exactRtp`; frozen per-machine values pinned in tests; PAR-sheet derivations) | **slots** (`app/engine/`) |
 
 ## 9. New-simulator checklist
 
