@@ -97,6 +97,51 @@ shallow penetration, continuous shuffling machines, and — most expensively for
 simulates: every preset is built from a real rulebook, and the 6:5 single-deck preset exists
 to show you why the "good-looking" game is the worst one on the floor.
 
+### Is Card Counting Still Viable?
+
+The short version: **the math still works — multi-deck shoes never killed counting — but as a
+way to make money, it is barely viable for a solo player, and the reasons are mostly not the
+decks.**
+
+The misconception worth clearing up first: Hi-Lo handles multi-deck shoes fine. That is exactly
+what the *true count* conversion is for — running count ÷ decks remaining normalizes your
+information to the size of the shoe (it's why this trainer makes you practice that division in
+the drills). What six or eight decks actually change: the off-the-top edge is slightly worse
+than single deck, and good counts arrive less often and run shallower. Inconvenient, not fatal.
+What makes the modern game genuinely hard is everything the casinos bolted on after Thorp:
+
+- **Penetration.** The cut card sits at 70–75% of the shoe, so the richest cards — where the
+  count actually pays — are never dealt. This is the single most important dial, and the house
+  controls it precisely. (The rules lab's penetration slider exists to show you this.)
+- **Continuous shuffling machines.** Cards return to the shoe after every round, so the count
+  never accumulates. Counting at a CSM table is dead — not harder, dead.
+- **6:5 payouts.** An extra ~1.4% to the house that no count overcomes, now standard at many
+  low-limit tables.
+- **Surveillance economics.** Counting only earns when you bet small in bad counts and 8–15×
+  bigger in good ones — and that bet spread is precisely the signature pit staff and software
+  watch for. Counting with your brain is legal everywhere in the United States, but outside
+  New Jersey a casino can simply ask you to leave (and even New Jersey lets them shuffle up or
+  flat-bet you). The real skill isn't beating the deck; it's beating the deck while looking
+  like you aren't.
+- **The wage math.** Played expertly — good rules, deep penetration, a real spread — a solo
+  counter's edge is roughly 0.5–1% of average action. With the bankroll discipline variance
+  demands (hundreds of maximum bets), that works out to about fast-food hourly pay with
+  enormous swings: the standard deviation per hour runs ten-plus times the expected earn, so
+  months-long losing stretches happen *while playing perfectly*. The players who still beat
+  the game today are mostly bankrolled teams doing careful game selection.
+
+The honest framing for a beginner: **counting is no longer a realistic income strategy, but it
+is an entirely realistic skill — and the cheapest tuition in gambling math you will ever get.**
+A typical tourist gives the house about 2% through bad play. Perfect basic strategy alone cuts
+that to ~0.5% on a good 3:2 game; a competent count gets you to roughly break-even or a hair
+positive. That transforms blackjack from paying for the casino's chandeliers into playing
+essentially free, with full understanding of why — and it permanently inoculates you against
+every betting-system myth, because you will know where the edge actually lives (the double-bust
+asymmetry) and what variance really feels like (the analysis page's *EV lost vs actual P&L*
+line teaches exactly that lesson). That is this trainer's honest pitch: learn the book, learn
+the count, learn game selection — and if you ever sit at a real table, you'll lose the least
+and know the most of anyone on the felt.
+
 ### Tidbits
 
 - Blackjack is the most-played casino table game in the United States — it overtook faro and

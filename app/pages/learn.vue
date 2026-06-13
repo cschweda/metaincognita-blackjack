@@ -69,6 +69,19 @@ const HISTORY_ERAS = [
   }
 ]
 
+/** The question the timeline raises — answered honestly (same content as the README essay). */
+const VIABILITY = {
+  intro: 'The math still works — multi-deck shoes never killed counting; true-count conversion exists precisely to handle them. What makes the modern game hard is everything else:',
+  killers: [
+    { name: 'Penetration', text: 'The cut card at 70–75% keeps the richest part of the shoe — where the count pays — from ever being dealt. The house controls this dial precisely.' },
+    { name: 'Continuous shufflers', text: 'CSMs return cards after every round, so the count never accumulates. Counting a CSM table is dead — not harder, dead.' },
+    { name: '6:5 payouts', text: 'An extra ~1.4% to the house that no count overcomes — now standard at many low-limit tables.' },
+    { name: 'Surveillance economics', text: 'Profit requires betting 8–15× more in good counts — exactly the signature surveillance watches for. Counting with your brain is legal everywhere in the US; outside New Jersey, the casino can simply show you the door.' },
+    { name: 'The wage math', text: 'Played expertly, the edge is ~0.5–1% of average action, and per-hour swings run ten-plus times the expected earn — months-long losing stretches happen while playing perfectly. The remaining winners are mostly bankrolled teams.' }
+  ],
+  bottomLine: 'So: counting is no longer a realistic income strategy — but it is an entirely realistic skill, and the cheapest tuition in gambling math there is. A typical tourist gives the house ~2%; perfect basic strategy cuts that to ~0.5% on a good 3:2 game; a competent count reaches roughly break-even. You play essentially free, with full understanding of why. That is this trainer\'s honest pitch.'
+}
+
 const VARIATIONS = [
   { name: 'Spanish 21', twist: 'All four tens removed; liberal doubling and bonus 21s', catch: 'Removing tens is worth roughly 2% to the house before bonuses claw some back' },
   { name: 'Pontoon (UK)', twist: 'Both dealer cards hidden; a five-card trick beats 20', catch: 'Ties lose to the dealer' },
@@ -341,6 +354,30 @@ const MTD = MATCH_THE_DEALER_PAYS
           </p>
         </li>
       </ol>
+
+      <div
+        class="rounded-lg border border-[var(--accent-gold)]/30 bg-neutral-900/60 p-3"
+        data-testid="counting-viability"
+      >
+        <h2 class="text-sm font-semibold text-[var(--accent-gold)]">
+          Is counting still viable?
+        </h2>
+        <p class="mt-1 text-xs leading-relaxed text-neutral-300">
+          {{ VIABILITY.intro }}
+        </p>
+        <ul class="mt-2 space-y-1.5 text-xs text-neutral-300">
+          <li
+            v-for="killer in VIABILITY.killers"
+            :key="killer.name"
+          >
+            <span class="font-semibold text-[var(--accent-cream)]">{{ killer.name }}.</span>
+            {{ killer.text }}
+          </li>
+        </ul>
+        <p class="mt-2 text-xs leading-relaxed text-neutral-300">
+          {{ VIABILITY.bottomLine }}
+        </p>
+      </div>
 
       <h2 class="pt-2 text-sm font-semibold text-[var(--accent-cream)]">
         Variations you'll meet on a real floor
