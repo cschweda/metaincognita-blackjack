@@ -49,6 +49,38 @@ describe('ActionBar — betting', () => {
     const w = await mountSuspended(ActionBar, { props: { ...base, phase: 'betting' } })
     expect(w.find('[data-testid="chip-2500"]').attributes('aria-label')).toBe('Add $25 chip')
   })
+
+  it('rebet clamps to the current bankroll instead of arming a dead Deal', async () => {
+    // lost down to $200 with a remembered $300 bet — rebet must re-place only what fits
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'betting', bankroll: 20_000, lastBet: { main: 30_000, side: { buster: 500 } } }
+    })
+    await w.find('[data-testid="rebet"]').trigger('click')
+    expect(w.find('[data-testid="deal"]').attributes('disabled')).toBeUndefined()
+    await w.find('[data-testid="deal"]').trigger('click')
+    expect(w.emitted('deal')![0]).toEqual([20_000, {}]) // clamped main; unaffordable side dropped
+  })
+
+  it('rebet keeps affordable side stakes', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'betting', bankroll: 100_000, lastBet: { main: 2500, side: { buster: 500 } } }
+    })
+    await w.find('[data-testid="rebet"]').trigger('click')
+    await w.find('[data-testid="deal"]').trigger('click')
+    expect(w.emitted('deal')![0]).toEqual([2500, { buster: 500 }])
+  })
+
+  it('says so when the committed amount exceeds the bankroll (no silent dead Deal)', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'betting', bankroll: 20_000 }
+    })
+    // drive the exposed state directly — UI paths now clamp, this guards future codepaths
+    const vm = w.vm as unknown as { mainBet: number }
+    vm.mainBet = 30_000
+    await w.vm.$nextTick()
+    expect(w.find('[data-testid="deal"]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-testid="bankroll-hint"]').text()).toContain('more than your $200 bankroll')
+  })
 })
 
 describe('ActionBar — actions & insurance', () => {

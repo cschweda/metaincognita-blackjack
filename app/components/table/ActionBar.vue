@@ -58,10 +58,21 @@ function clearBets(): void {
   target.value = 'main'
 }
 
+/** Re-place the previous wager, clamped to what the bankroll still covers — a rebet
+ *  must never arm a bet that silently disables Deal (the table goes dead with no error). */
 function rebet(): void {
   if (!props.lastBet) return
-  mainBet.value = props.lastBet.main
-  sideStakes.value = { ...props.lastBet.side }
+  const main = Math.min(props.lastBet.main, props.bankroll)
+  let total = main
+  const side: Partial<Record<SideBetKind, number>> = {}
+  for (const [kind, stake] of Object.entries(props.lastBet.side) as Array<[SideBetKind, number | undefined]>) {
+    if (stake && stake <= main && total + stake <= props.bankroll) {
+      side[kind] = stake
+      total += stake
+    }
+  }
+  mainBet.value = main
+  sideStakes.value = side
 }
 
 const dealDisabled = computed(() =>
@@ -163,6 +174,13 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
         class="text-xs text-amber-400"
       >
         Table minimum is ${{ rules.minBet / 100 }}
+      </p>
+      <p
+        v-if="committed > bankroll"
+        class="text-xs text-amber-400"
+        data-testid="bankroll-hint"
+      >
+        That's more than your ${{ (bankroll / 100).toLocaleString() }} bankroll — clear some chips
       </p>
     </template>
 
