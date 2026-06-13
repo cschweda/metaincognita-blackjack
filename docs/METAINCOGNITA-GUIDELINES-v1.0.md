@@ -1,7 +1,7 @@
 # Metaincognita Guidelines
 
 **The standard for every simulator in the Metaincognita casino suite.**
-Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
+Version: **1.0** · Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
 metaincognita.com umbrella repo when it exists) · Last revised: 2026-06-13
 
 Metaincognita is a family of single-player casino simulators — Hold'em, Video Poker, Flameout,
@@ -41,7 +41,8 @@ This document is the canon. Where it names a game in *(parentheses)*, that repo 
 
 ## 2. The Learning Scaffold (required in every simulator)
 
-Every Metaincognita app teaches on four layers. None is optional.
+Every Metaincognita app teaches on five layers. The first four are required; the Lab (§2.5)
+is the standard to grow into.
 
 ### 2.1 The README is a textbook chapter
 
@@ -104,6 +105,35 @@ The interactive teaching loop, identical across the suite:
   cell-for-cell where they exist *(blackjack's basic-strategy chart pins)*.
 - When a model is an estimate, the UI says so *(blackjack's "house edge is a model
   estimate" footnote)*.
+
+### 2.5 The Lab — the experimentation surface
+
+Where the learn page explains and the drills build reflexes, **the Lab lets the player run
+experiments**. It is the suite's answer to "what would happen if…?" — and it must answer with
+the real engine, never a lookup table.
+
+A Lab is a dedicated page where the player can:
+
+- **Parameterize a strategy.** Whatever the game's levers are: a bet ramp by true count
+  (blackjack), odds multiples and bet mixes (craps), hold strategies (video poker), cash-out
+  targets (flameout).
+- **See the math instantly.** Closed-form expectation, variance, hands-to-overcome-variance
+  (N0), and risk of ruin update live as sliders move — every figure labeled as model or
+  measurement.
+- **Run the experiment headlessly.** One button plays thousands of games — e.g., 5,000 rounds
+  or 500 full bankroll lifetimes — through the *actual game engine* at optimal (or the
+  player's configured) strategy, in a web worker with progress, and reports the empirical
+  distribution: bankroll fan charts (p5/p25/p50/p75/p95), ruin rates, convergence toward the
+  theoretical edge. The point is visceral: variance is loud, expectation is quiet, and only
+  volume tells the truth.
+- **Optionally feed play.** A Lab configuration may plug back into the table as opt-in
+  coaching (blackjack's ramp bet hints) — always off by default, never visible to a player
+  who just wants to sit down and play.
+
+The Lab is the same machinery as the §2.4 simulation proofs, pointed at the player instead of
+CI. *(Canonical: blackjack's Bet-Ramp & Risk-of-Ruin Lab; ancestors: craps' auto-roll/rapid
+convergence mode, video poker's async EV analysis workers, flameout's distribution
+simulators.)*
 
 ---
 

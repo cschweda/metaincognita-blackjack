@@ -13,7 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   table) and a History tab on the learn page (era timeline, floor variations, tidbits)
 - Brand assets: Metaincognita branded og-image (SVG + PNG), og/twitter social meta, README hero
   image and badges
-- `docs/METAINCOGNITA-GUIDELINES.md` — the suite-wide standard for how every simulator looks,
+- `docs/METAINCOGNITA-GUIDELINES-v1.0.md` — the suite-wide standard for how every simulator looks,
   works, teaches, and explains (canonical home, pending the metaincognita.com umbrella)
 - `start-dev-server.sh` — kills this repo's stale dev servers (by listening-port ownership),
   clears caches, starts fresh

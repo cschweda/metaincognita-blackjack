@@ -193,4 +193,4 @@ felt.** The Learn page's rules lab lets you toggle any rule and watch the house 
 
 Part of the **Metaincognita** simulator family: Hold'em, Video Poker, Flameout, Craps,
 Pachinko, Slots. Suite-wide standards live in
-[`docs/METAINCOGNITA-GUIDELINES.md`](docs/METAINCOGNITA-GUIDELINES.md).
+[`docs/METAINCOGNITA-GUIDELINES-v1.0.md`](docs/METAINCOGNITA-GUIDELINES-v1.0.md).
