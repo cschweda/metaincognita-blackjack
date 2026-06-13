@@ -15,6 +15,8 @@ const props = defineProps<{
   roundSummary?: RoundSummary | null
   /** Current bankroll in cents, shown next to the round's net change. */
   bankrollCents?: number
+  /** Opt-in ramp coaching (Bet Lab) — one bet-size line, only between rounds. */
+  betHint?: string | null
 }>()
 
 const summaryClass = computed(() => {
@@ -172,6 +174,14 @@ const open = ref(true) // collapsible (spec §6)
         data-testid="advisor-exam"
       >
         Exam mode — decisions are graded silently in History.
+      </p>
+
+      <p
+        v-if="betHint"
+        class="mt-2 font-mono text-[var(--accent-gold)]"
+        data-testid="advisor-bet-hint"
+      >
+        {{ betHint }}
       </p>
 
       <p
