@@ -14,6 +14,8 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
+      // inline so the first paint is dark even before any stylesheet arrives
+      bodyAttrs: { style: 'background-color: #0a0a0a' },
       title: 'Blackjack Trainer',
       meta: [
         { name: 'description', content: 'Authentic casino blackjack simulator and trainer — basic strategy, card counting, official-rulebook rules' },
@@ -37,6 +39,9 @@ export default defineNuxtConfig({
     preference: 'dark',
     fallback: 'dark'
   },
+
+  // branded boot screen while the SPA bundle loads (app/spa-loading-template.html)
+  spaLoadingTemplate: true,
 
   compatibilityDate: '2025-01-15',
 
