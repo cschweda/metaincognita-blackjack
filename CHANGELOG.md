@@ -5,6 +5,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
+### Added (since 0.3.0)
+- Round-outcome presentation: large center-felt WIN/LOSE/PUSH/BLACKJACK banner with the signed
+  amount, and an advisor recap of every settled round — headline, why, bankroll change, and
+  strategy moments in the trainer's voice; exam mode shows the outcome but keeps grading for History
+- Learning scaffold: "Learn the Game" README section (sourced history essay, tidbits, variations
+  table) and a History tab on the learn page (era timeline, floor variations, tidbits)
+- Brand assets: Metaincognita branded og-image (SVG + PNG), og/twitter social meta, README hero
+  image and badges
+- `docs/METAINCOGNITA-GUIDELINES.md` — the suite-wide standard for how every simulator looks,
+  works, teaches, and explains (canonical home, pending the metaincognita.com umbrella)
+- `start-dev-server.sh` — kills this repo's stale dev servers (by listening-port ownership),
+  clears caches, starts fresh
+
+### Fixed (since 0.3.0)
+- Rebet clamps to the current bankroll; over-bankroll bets show a hint instead of silently
+  disabling Deal
+- Heads-up tables no longer render empty-seat markers
+- History/analysis muted text lifted to AA contrast
+
 ### Added (0.3.0 — training surfaces)
 - Advisor with three intensities (coach / feedback / exam): live recommendation + EV table,
   per-decision grading with mistake cost, deviation-aware at the count (Illustrious 18 + Fab 4,

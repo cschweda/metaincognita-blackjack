@@ -17,11 +17,76 @@ const tabs = [
   { label: 'Rules lab', value: 'rules' },
   { label: 'Counting', value: 'counting' },
   { label: 'Side bets', value: 'sidebets' },
+  { label: 'History', value: 'history' },
   { label: 'Myths', value: 'myths' },
   { label: 'Procedure', value: 'procedure' },
   { label: 'Glossary', value: 'glossary' }
 ]
 const tab = ref('chart')
+
+/** Accurate, source-honest history — the README essay, condensed to era cards
+ *  (the family pattern from flameout's learn page). Contested lore is flagged as lore. */
+const HISTORY_ERAS = [
+  {
+    era: 'c. 1601',
+    title: 'Ventiuna — Cervantes deals first',
+    body: 'The earliest known reference to twenty-one is Spanish: Cervantes\' card cheats in Rinconete y Cortadillo play "ventiuna" — reach twenty-one without going over, ace counting one or eleven. The game\'s skeleton is four centuries old.'
+  },
+  {
+    era: '1700s',
+    title: 'Vingt-et-un in the salons',
+    body: 'France refines the game as vingt-et-un. Tradition ties it to the court of Louis XV and to Napoleon — thin documentation, but a measure of its fashion. French colonists carry it to New Orleans and the riverboats take it upstream.'
+  },
+  {
+    era: 'c. 1900–1931',
+    title: 'How twenty-one became "blackjack"',
+    body: 'The famous story: gambling halls paid a 10:1 bonus when your two-card 21 was the ace of spades plus a black jack, and the bonus named the game. Historians note "blackjack" shows up in Klondike-era mining slang first — treat the bonus tale as legend. Nevada licensed the game as blackjack in 1931, and the name stuck.'
+  },
+  {
+    era: '1956',
+    title: 'The Four Horsemen of Aberdeen',
+    body: 'Four Army mathematicians — Baldwin, Cantey, Maisel, McDermott — spend 18 months on desk calculators and publish the first accurate basic strategy in the Journal of the American Statistical Association. Played perfectly, the house edge nearly vanishes. Almost nobody believes them.'
+  },
+  {
+    era: '1962',
+    title: 'Thorp proves the deck remembers',
+    body: 'Edward O. Thorp re-runs the math on an IBM 704 and publishes Beat the Dealer: removed cards change the odds, so the player can know when the shoe favors them. Casinos briefly rewrite the rules in panic, then revert when the tables empty.'
+  },
+  {
+    era: '1963–66',
+    title: 'Hi-Lo arrives',
+    body: 'Harvey Dubner presents the Hi-Lo count; Julian Braun\'s IBM computations refine it; Thorp folds it into the revised Beat the Dealer. Later writers — Stanford Wong, Don Schlesinger (the Illustrious 18 this trainer teaches) — turn it into the standard practical system.'
+  },
+  {
+    era: '1970s–90s',
+    title: 'Teams, courts, and countermeasures',
+    body: 'Ken Uston\'s big-player teams win millions; New Jersey\'s Supreme Court rules (Uston v. Resorts International, 1982) that Atlantic City casinos cannot bar counters. Casinos answer with more decks, earlier shuffles, and cameras. The MIT teams run the playbook into the \'90s — later mythologized in Bringing Down the House and the film 21.'
+  },
+  {
+    era: 'Today',
+    title: 'The arms race you practice against',
+    body: 'Six- and eight-deck shoes, shallow penetration, continuous shufflers, and 6:5 blackjack payouts (spreading since the early 2000s, ≈ +1.4% to the edge). Every preset here is built from a real rulebook — including the 6:5 single-deck trap, kept on purpose as the teaching example.'
+  }
+]
+
+const VARIATIONS = [
+  { name: 'Spanish 21', twist: 'All four tens removed; liberal doubling and bonus 21s', catch: 'Removing tens is worth roughly 2% to the house before bonuses claw some back' },
+  { name: 'Pontoon (UK)', twist: 'Both dealer cards hidden; a five-card trick beats 20', catch: 'Ties lose to the dealer' },
+  { name: 'European no-hole-card', twist: 'Dealer takes no hole card until players finish', catch: 'Doubles and splits lose in full to a dealer blackjack' },
+  { name: 'Double Exposure', twist: 'Both dealer cards dealt face up', catch: 'Blackjack pays even money; ties lose' },
+  { name: 'Blackjack Switch', twist: 'Two hands; you may swap their second cards', catch: 'Blackjack pays 1:1 and dealer 22 pushes' },
+  { name: 'Free Bet', twist: '"Free" doubles and splits on the common totals', catch: 'Dealer 22 pushes everything' },
+  { name: 'Super Fun 21', twist: 'Surrender any time; player 21 always wins', catch: 'Blackjack pays even money except in diamonds' }
+]
+
+const TIDBITS = [
+  'Blackjack is the most-played casino table game in the United States — it overtook faro and craps mid-century and never gave the lead back.',
+  'The edge isn\'t dealer skill — dealers make zero decisions. It\'s the double-bust asymmetry: you bust first, you lose, even if the dealer busts the same round.',
+  'The dealer busts about 28% of rounds — basic strategy\'s "stand on a stiff vs a weak upcard" lines exist purely to harvest those busts.',
+  'Insurance is a side bet on the hole card being a ten, paying 2:1 on worse-than-2:1 odds. "Even money" is the same bet in disguise.',
+  'No betting progression changes the EV of a single hand. Perfect basic strategy is worth more than every Martingale ever played.',
+  'The Four Horsemen used hand-cranked desk calculators; Thorp needed an IBM 704. This trainer re-derives their charts in your browser and pins them in CI.'
+]
 
 const HILO_ROWS = [
   { cards: '2 3 4 5 6', tag: '+1', value: 1 },
@@ -248,6 +313,86 @@ const MTD = MATCH_THE_DEALER_PAYS
           </tbody>
         </table>
       </div>
+    </section>
+
+    <section
+      v-else-if="tab === 'history'"
+      class="space-y-4"
+      data-testid="history-section"
+    >
+      <p class="text-xs text-neutral-400">
+        Four centuries from a Seville card hustle to the six-deck shoe — the short, source-honest
+        version. The full essay lives in the project README.
+      </p>
+      <ol class="space-y-3">
+        <li
+          v-for="item in HISTORY_ERAS"
+          :key="item.era"
+          class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3"
+        >
+          <p class="font-mono text-xs text-[var(--accent-gold)]">
+            {{ item.era }}
+          </p>
+          <h2 class="mt-0.5 text-sm font-semibold text-[var(--accent-cream)]">
+            {{ item.title }}
+          </h2>
+          <p class="mt-1 text-xs leading-relaxed text-neutral-300">
+            {{ item.body }}
+          </p>
+        </li>
+      </ol>
+
+      <h2 class="pt-2 text-sm font-semibold text-[var(--accent-cream)]">
+        Variations you'll meet on a real floor
+      </h2>
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-neutral-400">
+            <th class="py-1 pr-3">
+              Variation
+            </th>
+            <th class="py-1 pr-3">
+              The twist
+            </th>
+            <th class="py-1">
+              The catch
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="variation in VARIATIONS"
+            :key="variation.name"
+            class="border-t border-neutral-800 align-top text-neutral-300"
+          >
+            <td class="py-1.5 pr-3 font-semibold whitespace-nowrap">
+              {{ variation.name }}
+            </td>
+            <td class="py-1.5 pr-3">
+              {{ variation.twist }}
+            </td>
+            <td class="py-1.5 text-neutral-400">
+              {{ variation.catch }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="text-xs text-neutral-400">
+        The rule of thumb: every flashy rule is paid for somewhere else on the felt — toggle any
+        of them in the Rules lab and watch the edge move.
+      </p>
+
+      <h2 class="pt-2 text-sm font-semibold text-[var(--accent-cream)]">
+        Tidbits
+      </h2>
+      <ul class="list-disc space-y-1.5 pl-5 text-xs text-neutral-300">
+        <li
+          v-for="tidbit in TIDBITS"
+          :key="tidbit"
+        >
+          {{ tidbit }}
+        </li>
+      </ul>
     </section>
 
     <section

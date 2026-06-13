@@ -39,3 +39,20 @@ describe('learn page', () => {
     expect(w.find('[data-testid="cell-hard-16-10"]').exists()).toBe(true)
   })
 })
+
+describe('learn page — history tab', () => {
+  it('renders the era timeline, variations, and tidbits', async () => {
+    const w = await mountSuspended(LearnPage)
+    const historyTab = w.findAll('button').find(b => b.text() === 'History')
+    expect(historyTab).toBeDefined()
+    await historyTab!.trigger('focus')
+    await historyTab!.trigger('click')
+    const section = w.find('[data-testid="history-section"]')
+    expect(section.exists()).toBe(true)
+    expect(section.text()).toContain('Cervantes')
+    expect(section.text()).toContain('Beat the Dealer')
+    expect(section.text()).toContain('Uston v. Resorts International')
+    expect(section.text()).toContain('Spanish 21')
+    expect(section.text()).toContain('double-bust asymmetry')
+  })
+})

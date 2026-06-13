@@ -16,7 +16,17 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'en' },
       title: 'Blackjack Trainer',
       meta: [
-        { name: 'description', content: 'Authentic casino blackjack simulator and trainer — basic strategy, card counting, official-rulebook rules' }
+        { name: 'description', content: 'Authentic casino blackjack simulator and trainer — basic strategy, card counting, official-rulebook rules' },
+        { property: 'og:title', content: 'Blackjack Trainer' },
+        { property: 'og:description', content: 'Basic strategy coaching and Hi-Lo counting practice on rules from official casino documents.' },
+        { property: 'og:image', content: '/og-image.png' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:type', content: 'website' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Blackjack Trainer' },
+        { name: 'twitter:description', content: 'Basic strategy coaching and Hi-Lo counting practice on rules from official casino documents.' },
+        { name: 'twitter:image', content: '/og-image.png' }
       ]
     }
   },
