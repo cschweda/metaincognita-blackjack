@@ -84,4 +84,16 @@ describe('table page integration (quick mode, seeded)', () => {
     expect(page.find('[data-testid="deal"]').attributes('disabled')).toBeDefined()
     expect(page.find('[data-testid="study-hotspot-shoe"]').exists()).toBe(true)
   })
+
+  it('heads-up table hides the empty-seat markers (no companions)', async () => {
+    const loop = useGameLoop()
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    loop.startSession({
+      rules, mode: 'quick', speed: 'normal', flair: false, botIds: [],
+      advisor: 'feedback', count: 'off', advancedDeviations: false
+    }, 100_000, 7)
+    const page = await mountSuspended(TablePage)
+    expect(page.findAll('.border-dashed.rounded-full').length).toBe(0)
+  })
 })

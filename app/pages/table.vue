@@ -152,8 +152,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               :is-active="phase === 'playerTurns' && spotId === heroSpotId && canAct"
             />
           </div>
+          <!-- empty-seat markers only when companions are at the table: a heads-up
+               session reads as exactly you vs the dealer (first-time clarity) -->
           <div
-            v-else
+            v-else-if="(store.settings?.botIds.length ?? 0) > 0"
             class="hidden h-10 w-10 rounded-full border border-dashed border-[var(--accent-cream)]/15 md:block"
             aria-hidden="true"
           />
