@@ -4,7 +4,7 @@ import { FAB_4, ILLUSTRIOUS_18 } from '~/utils/engine/counting'
 
 const props = withDefaults(defineProps<{
   rng?: () => number
-}>(), { rng: () => Math.random })
+}>(), { rng: () => Math.random() })
 
 const store = useBlackjackStore()
 const POOL: Deviation[] = [...ILLUSTRIOUS_18, ...FAB_4]

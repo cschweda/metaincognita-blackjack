@@ -6,6 +6,11 @@ import type { PlayMode, PlaySpeed, AdvisorIntensity, CountVisibility } from '~/s
 const store = useBlackjackStore()
 const { startSession, restoreSession } = useGameLoop()
 const router = useRouter()
+const route = useRoute()
+const urlSeed = computed(() => {
+  const raw = Number(route.query.seed)
+  return Number.isFinite(raw) && raw > 0 ? raw : undefined
+})
 
 const presetKey = ref('VEGAS_STRIP_6D')
 const customRules = ref(cloneRules(PRESETS.CUSTOM!))
@@ -59,7 +64,7 @@ function start(): void {
     advisor: advisor.value,
     count: countVisibility.value,
     advancedDeviations: countVisibility.value === 'off' ? false : advancedDeviations.value
-  }, bankrollChoice.value)
+  }, bankrollChoice.value, urlSeed.value)
   router.push('/table')
 }
 </script>

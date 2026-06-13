@@ -5,7 +5,7 @@ import { hiLoValue } from '~/utils/engine/counting'
 
 const props = withDefaults(defineProps<{
   rng?: () => number
-}>(), { rng: () => Math.random })
+}>(), { rng: () => Math.random() })
 
 const store = useBlackjackStore()
 

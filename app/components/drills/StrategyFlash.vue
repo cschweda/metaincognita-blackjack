@@ -8,7 +8,7 @@ import { PRESETS } from '~/utils/engine/rules'
 
 const props = withDefaults(defineProps<{
   rng?: () => number
-}>(), { rng: () => Math.random })
+}>(), { rng: () => Math.random() })
 
 const store = useBlackjackStore()
 const rules = computed(() => store.settings?.rules ?? PRESETS.VEGAS_STRIP_6D!)

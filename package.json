@@ -16,6 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run --project unit",
     "test:nuxt": "vitest run --project nuxt",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "clean": "rm -rf node_modules/.vite .nuxt"
   },
   "dependencies": {
