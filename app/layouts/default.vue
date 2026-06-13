@@ -7,7 +7,7 @@ const { endSession } = useGameLoop()
 const isSetup = computed(() => route.path === '/')
 const onTable = computed(() => route.path === '/table')
 const showLeaveConfirm = ref(false)
-const version = '0.2.0'
+const version = '0.3.0'
 
 const NAV = [
   { to: '/history', label: 'History', icon: 'i-lucide-scroll-text' },

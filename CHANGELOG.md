@@ -5,6 +5,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
+### Added (0.3.0 — training surfaces)
+- Advisor with three intensities (coach / feedback / exam): live recommendation + EV table,
+  per-decision grading with mistake cost, deviation-aware at the count (Illustrious 18 + Fab 4,
+  advanced toggle), insurance advice, side-bet caution
+- Hi-Lo counting: presented-card running count, half-deck true count, self-check (C key),
+  shuffle quizzes, count survives mid-round refresh
+- History page (per-decision ✓/✗ vs book, cost, RC/TC, expandable EV tables) and Analysis page
+  (adherence by category, top mistakes, EV lost vs actual P&L, count accuracy, side-bet ledger,
+  bankroll sparkline, bot P&L)
+- Learn page: interactive strategy chart generated from the engine (tap any cell for the EV math),
+  rules lab with live house-edge deltas, Hi-Lo primer + deviation tables, official side-bet pay
+  tables, myths, casino-procedure guide, glossary
+- Drills: Strategy Flash (mistake-weighted), Count the Cards (3 speeds × 3 group sizes),
+  True-Count Conversion, Deviation Quiz — bests persisted for life
+- Study mode hotspots, training nav, pit-boss milestones, myth quips, payout flash, mobile pass
+  (bots collapse to status chips), a11y fixes, Playwright E2E suite, Netlify deploy config
+- Lifetime training stats under `blackjack-training-v1` (survive leaving the table)
+
+### Changed (0.3.0)
+- `Deviation.play` union gains `'surrender'`; `deviationFor` accepts a deviation pool
+- Side-bet pay-table constants exported for the learn page
+
 ### Added (0.2.0 — playable game)
 - Setup screen: five rulebook-cited presets with model-estimate house edges, full custom rules
   editor with engine validation, bot companion picker, bankroll/mode/speed selection
