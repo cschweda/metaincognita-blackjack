@@ -5,7 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
-### Added (since 0.3.0)
+## [0.4.0] — 2026-06-12
+
+### Added (0.4.0 — counting trainer, Bet Lab, presentation polish)
+- Counting-trainer expansion: Pair Cancellation drill (read pairs, not cards — cancelling
+  pairs are skipped, never summed) and the Full-Deck Countdown benchmark (one card set aside;
+  the final count reveals it — self-verifying; best time persisted, correct runs only)
+- The Bet Lab (`/lab`, fifth nav item): ramp editor with persistence, instant closed-form
+  EV/SD/N₀/risk-of-ruin against an engine-measured TC distribution, on-demand simulation of
+  bankroll lifetimes through the real engine in a cancellable web worker, percentile fan chart
+- Opt-in table bet hints: with a saved ramp, coaching enabled, counting active, and advanced
+  deviations on (never in exam mode), the advisor adds one bet-size line between rounds
+- `recordDrillTime` store action (minimum semantics) and additive lifetime-training fields
+  `drillTimes`, `betRamp`, `betHintsEnabled`
+- Branded SPA loading screen — dark felt-chip boot spinner replaces the white flash while the
+  bundle loads
 - Round-outcome presentation: large center-felt WIN/LOSE/PUSH/BLACKJACK banner with the signed
   amount, and an advisor recap of every settled round — headline, why, bankroll change, and
   strategy moments in the trainer's voice; exam mode shows the outcome but keeps grading for History
@@ -18,7 +32,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 - `start-dev-server.sh` — kills this repo's stale dev servers (by listening-port ownership),
   clears caches, starts fresh
 
-### Fixed (since 0.3.0)
+### Fixed (0.4.0)
 - Rebet clamps to the current bankroll; over-bankroll bets show a hint instead of silently
   disabling Deal
 - Heads-up tables no longer render empty-seat markers

@@ -36,8 +36,14 @@ counting practice on rules taken from official gaming-commission documents, not 
 - **Learn page** — strategy chart generated from the EV engine for the active rules (tap a cell
   for the math), rules lab with live edge deltas, side-bet pay tables, game history, myths,
   procedure guide
-- **Four drills** — Strategy Flash (weighted toward your mistakes), Count the Cards,
-  True-Count Conversion, Deviation Quiz
+- **Six drills** — Strategy Flash (weighted toward your mistakes), Count the Cards, Pair
+  Cancellation (read pairs, not cards), True-Count Conversion, Deviation Quiz, and the
+  Full-Deck Countdown — the classic self-verifying speed benchmark (under 30s is the pro bar)
+- **The Bet Lab** — build a bet ramp and see what it's worth before you trust it: instant
+  EV/variance/N₀/risk-of-ruin math against a TC distribution measured by the engine, then an
+  on-demand simulation of hundreds of bankroll lifetimes through the real engine (web worker,
+  cancellable) drawn as a percentile fan chart; optionally let the advisor coach your bet size
+  between rounds at the table
 - **Bot companions** — five personas with strategy leaks you can measure on the analysis page
 - **Bulletproof persistence** — a mid-round refresh restores the exact table, count included
 - **Four side bets with official pay tables** — 21+3, Lucky Ladies, Match the Dealer, Buster
