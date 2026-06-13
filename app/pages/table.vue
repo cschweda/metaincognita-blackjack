@@ -3,6 +3,7 @@ import type { Action } from '~/utils/engine/hand'
 import { isBlackjack } from '~/utils/engine/hand'
 import type { SideBetKind } from '~/utils/engine/round'
 import { useCounting } from '~/composables/useCounting'
+import { betForTc, bucketForTc } from '~/utils/betRamp'
 import { adviseHand, adviseInsurance, summarizeRound } from '~/utils/advisor'
 import type { RoundSummary } from '~/utils/advisor'
 import CountPanel from '~/components/panels/CountPanel.vue'
@@ -61,6 +62,23 @@ const heroHasBlackjack = computed(() => {
   return !!cards && cards.length === 2 && isBlackjack(cards, false)
 })
 const betweenRounds = computed(() => phase.value === 'betting' || (phase.value === 'complete' && queueIdle.value))
+
+/** Opt-in ramp coaching (Bet Lab): one bet-size line between rounds. Every gate must hold —
+ *  saved toggle, counting on, advanced deviations, not exam — or the table stays unchanged. */
+const betHint = computed<string | null>(() => {
+  if (!store.settings || !rules.value) return null
+  const ramp = store.training.betRamp
+  if (!ramp || !store.training.betHintsEnabled) return null
+  if (store.settings.count === 'off' || !store.settings.advancedDeviations) return null
+  if (store.settings.advisor === 'exam') return null
+  if (!betweenRounds.value) return null
+  const tc = counting.tc.value
+  const tcText = `${tc >= 0 ? '+' : '−'}${Math.abs(tc).toFixed(1)}`
+  if (ramp.wongOut && bucketForTc(tc) === 0) return `Ramp: sit out — TC ${tcText}`
+  const cents = betForTc(ramp, tc, rules.value)
+  const units = Math.round((cents / ramp.unitCents) * 10) / 10
+  return `Ramp: bet ${units} unit${units === 1 ? '' : 's'} ($${(cents / 100).toLocaleString()}) — TC ${tcText}`
+})
 const latestAnnouncement = computed(() => announcements.value[announcements.value.length - 1]?.text ?? '')
 
 function onDeal(main: number, side: Partial<Record<SideBetKind, number>>): void {
@@ -179,6 +197,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             :show-side-bet-caution="store.settings!.advisor === 'coach' && betweenRounds && sideStakesPlaced"
             :round-summary="roundSummary"
             :bankroll-cents="store.bankroll"
+            :bet-hint="betHint"
           />
         </div>
         <div class="pointer-events-auto">

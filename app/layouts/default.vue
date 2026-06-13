@@ -7,13 +7,14 @@ const { endSession } = useGameLoop()
 const isSetup = computed(() => route.path === '/')
 const onTable = computed(() => route.path === '/table')
 const showLeaveConfirm = ref(false)
-const version = '0.3.0'
+const version = '0.4.0'
 
 const NAV = [
   { to: '/history', label: 'History', icon: 'i-lucide-scroll-text' },
   { to: '/analysis', label: 'Analysis', icon: 'i-lucide-bar-chart-3' },
   { to: '/learn', label: 'Learn', icon: 'i-lucide-book-open' },
-  { to: '/drills', label: 'Drills', icon: 'i-lucide-target' }
+  { to: '/drills', label: 'Drills', icon: 'i-lucide-target' },
+  { to: '/lab', label: 'Bet Lab', icon: 'i-lucide-flask-conical' }
 ]
 
 function handleBack() {
@@ -87,7 +88,7 @@ function subPageBack() {
           :class="route.path === link.to ? 'text-amber-400' : 'text-neutral-400 hover:text-neutral-200'"
           :aria-current="route.path === link.to ? 'page' : undefined"
           :aria-label="link.label"
-          :data-testid="`nav-${link.label.toLowerCase()}`"
+          :data-testid="`nav-${link.label.toLowerCase().replace(/\s+/g, '-')}`"
           @click="navigateTo(link.to)"
         >
           <UIcon

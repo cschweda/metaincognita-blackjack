@@ -4,6 +4,7 @@ import type { RuleSet } from '../utils/engine/rules'
 import type { PersonaId } from '../utils/engine/bots'
 import type { GameSnapshot } from '../utils/engine/serializeTypes'
 import type { Action } from '../utils/engine/hand'
+import type { BetRamp } from '../utils/betRamp'
 
 export const STORAGE_KEY = 'blackjack-session-v1'
 const STORAGE_VERSION = 1
@@ -65,6 +66,12 @@ export interface TrainingStats {
   mistakeBag: Record<string, number>
   countChecks: Array<{ at: number, entered: number, actual: number }>
   drillBests: Record<string, number>
+  /** Best (minimum) times per timed drill, ms. */
+  drillTimes: Record<string, number>
+  /** Saved Bet Lab ramp — lifetime config, survives leaving the table. */
+  betRamp: BetRamp | null
+  /** Opt-in: coach suggests ramp bet sizes at the table. */
+  betHintsEnabled: boolean
 }
 
 export interface RoundRecord {
@@ -115,7 +122,10 @@ function freshTraining(): TrainingStats {
     },
     mistakeBag: {},
     countChecks: [],
-    drillBests: {}
+    drillBests: {},
+    drillTimes: {},
+    betRamp: null,
+    betHintsEnabled: false
   }
 }
 
@@ -149,7 +159,14 @@ export const useBlackjackStore = defineStore('blackjack', () => {
         countChecks: Array.isArray(data.countChecks) ? data.countChecks.slice(-COUNT_CHECK_CAP) : [],
         drillBests: typeof data.drillBests === 'object' && data.drillBests !== null && !Array.isArray(data.drillBests)
           ? data.drillBests as Record<string, number>
-          : {}
+          : {},
+        drillTimes: typeof data.drillTimes === 'object' && data.drillTimes !== null && !Array.isArray(data.drillTimes)
+          ? data.drillTimes as Record<string, number>
+          : {},
+        betRamp: typeof data.betRamp === 'object' && data.betRamp !== null && !Array.isArray(data.betRamp)
+          ? data.betRamp as BetRamp
+          : null,
+        betHintsEnabled: data.betHintsEnabled === true
       }
     } catch {
       return freshTraining()
@@ -199,6 +216,21 @@ export const useBlackjackStore = defineStore('blackjack', () => {
       training.value.drillBests[id] = score
       persistTraining()
     }
+  }
+
+  /** Best-time semantics: keep the MINIMUM (recordDrillBest keeps the maximum). */
+  function recordDrillTime(id: string, ms: number): void {
+    const current = training.value.drillTimes[id]
+    if (current === undefined || ms < current) {
+      training.value.drillTimes[id] = ms
+      persistTraining()
+    }
+  }
+
+  function setBetRamp(ramp: BetRamp | null, hintsEnabled: boolean): void {
+    training.value.betRamp = ramp
+    training.value.betHintsEnabled = hintsEnabled
+    persistTraining()
   }
 
   function setCountState(s: { running: number, cardsSeen: number } | null): void {
@@ -323,6 +355,7 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     sessionActive, storageAvailable, busted,
     training, countState,
     initSession, applyNet, recordRound, saveSnapshot, persist, restore, clearAll,
-    setCountState, recordDecision, recordInsuranceDecision, recordCountCheck, recordDrillBest
+    setCountState, recordDecision, recordInsuranceDecision, recordCountCheck, recordDrillBest,
+    recordDrillTime, setBetRamp
   }
 })

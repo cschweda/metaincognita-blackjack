@@ -167,3 +167,41 @@ describe('useBlackjackStore', () => {
     expect(store.training.adherence.insurance).toEqual({ decisions: 1, correct: 1 })
   })
 })
+
+describe('useBlackjackStore — drill times and bet ramp', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('recordDrillTime keeps the minimum (best time)', () => {
+    const store = useBlackjackStore()
+    store.recordDrillTime('deck-countdown', 45_000)
+    store.recordDrillTime('deck-countdown', 60_000) // slower — ignored
+    store.recordDrillTime('deck-countdown', 29_500) // faster — kept
+    expect(store.training.drillTimes['deck-countdown']).toBe(29_500)
+  })
+
+  it('persists betRamp + hints toggle lifetime and backfills old payloads', () => {
+    const store = useBlackjackStore()
+    store.setBetRamp({ ...DEFAULT_RAMP, unitCents: 5000 }, true)
+    expect(store.training.betHintsEnabled).toBe(true)
+
+    setActivePinia(createPinia())
+    const fresh = useBlackjackStore()
+    expect(fresh.training.betRamp?.unitCents).toBe(5000)
+    expect(fresh.training.betHintsEnabled).toBe(true)
+
+    // an old payload without the new fields backfills safely
+    const raw = JSON.parse(localStorage.getItem(TRAINING_KEY)!)
+    delete raw.betRamp
+    delete raw.betHintsEnabled
+    delete raw.drillTimes
+    localStorage.setItem(TRAINING_KEY, JSON.stringify(raw))
+    setActivePinia(createPinia())
+    const old = useBlackjackStore()
+    expect(old.training.betRamp).toBeNull()
+    expect(old.training.betHintsEnabled).toBe(false)
+    expect(old.training.drillTimes).toEqual({})
+  })
+})

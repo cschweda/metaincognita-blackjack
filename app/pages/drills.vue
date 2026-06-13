@@ -5,10 +5,12 @@ onMounted(() => {
 })
 
 const tabs = [
-  { label: 'Strategy flash', value: 'flash' },
-  { label: 'Count the cards', value: 'count' },
+  { label: 'Strategy', value: 'flash' },
+  { label: 'Counting', value: 'count' },
+  { label: 'Pairs', value: 'pair' },
   { label: 'True count', value: 'tc' },
-  { label: 'Deviations', value: 'quiz' }
+  { label: 'Deviations', value: 'quiz' },
+  { label: 'Countdown', value: 'countdown' }
 ]
 const tab = ref('flash')
 </script>
@@ -25,7 +27,9 @@ const tab = ref('flash')
     />
     <StrategyFlash v-if="tab === 'flash'" />
     <CountDrill v-else-if="tab === 'count'" />
+    <PairCancel v-else-if="tab === 'pair'" />
     <TrueCountDrill v-else-if="tab === 'tc'" />
+    <DeckCountdown v-else-if="tab === 'countdown'" />
     <DeviationQuiz v-else />
   </main>
 </template>
