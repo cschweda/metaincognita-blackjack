@@ -14,7 +14,7 @@ import {
   countShuffle, countVisibleCard, resetCounting, restoreCounting,
   __resetCountingForTests, useCounting
 } from './useCounting'
-import { adviseHand, adviseInsurance, decisionCost } from '../utils/advisor'
+import { adviseHand, adviseInsurance, decisionCost, summarizeRound } from '../utils/advisor'
 import { freshMilestones, roundMilestones, shuffleMilestone } from '../utils/milestones'
 import type { MilestoneState } from '../utils/milestones'
 
@@ -370,7 +370,9 @@ function finalizeRound(): void {
         outcome: h.outcome ?? 'push',
         net: h.netResult,
         doubled: h.doubled,
-        fromSplit: h.fromSplit
+        fromSplit: h.fromSplit,
+        total: handTotal(h.cards).total,
+        soft: handTotal(h.cards).soft
       })),
       sideBets: spot.sideBetResults.map(r => ({ name: r.name, stake: r.stake, net: r.net, label: r.label })),
       insuranceNet: spot.insuranceNet
@@ -380,6 +382,9 @@ function finalizeRound(): void {
     heroInsurance: insuranceThisRound
   }
   store.recordRound(record)
+  // the result reaches the aria-live region (and dealer line) before any flair lines
+  const summary = summarizeRound(record)
+  if (summary) pushAnnouncement(summary.headline)
   if (store.settings?.flair) {
     const heroNet = record.spots
       .filter(s => s.occupant === 'hero')

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { AdvisorRecommendation } from '~/utils/advisor'
+import type { AdvisorRecommendation, RoundSummary } from '~/utils/advisor'
 import { pctEV } from '~/utils/advisor'
 import type { AdvisorIntensity, DecisionRecord } from '~/stores/useBlackjackStore'
 import type { Action } from '~/utils/engine/hand'
@@ -11,7 +11,25 @@ const props = defineProps<{
   recommendation: AdvisorRecommendation | null
   lastDecision: DecisionRecord | null
   showSideBetCaution: boolean
+  /** Settled-round recap — pass while between rounds; takes over the panel body. */
+  roundSummary?: RoundSummary | null
+  /** Current bankroll in cents, shown next to the round's net change. */
+  bankrollCents?: number
 }>()
+
+const summaryClass = computed(() => {
+  const s = props.roundSummary
+  if (!s) return ''
+  if (s.outcome === 'blackjack' || s.netCents > 0) return 'text-[var(--accent-gold)]'
+  if (s.netCents < 0) return 'text-red-400'
+  return 'text-neutral-200'
+})
+
+function signed(cents: number): string {
+  const abs = Math.abs(cents) / 100
+  const formatted = abs.toLocaleString(undefined, { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })
+  return `${cents > 0 ? '+' : cents < 0 ? '−' : '±'}$${formatted}`
+}
 
 const ACTION_LABEL: Record<Action, string> = {
   hit: 'Hit', stand: 'Stand', double: 'Double', split: 'Split', surrender: 'Surrender'
@@ -44,7 +62,43 @@ const open = ref(true) // collapsible (spec §6)
     </button>
 
     <div v-show="open">
-      <template v-if="intensity === 'coach'">
+      <!-- settled-round recap: outcome, why, money — strategy moments hidden in exam mode -->
+      <div
+        v-if="roundSummary"
+        data-testid="advisor-round"
+      >
+        <p
+          class="text-base font-bold"
+          :class="summaryClass"
+          data-testid="advisor-headline"
+        >
+          {{ roundSummary.headline }}
+        </p>
+        <p class="mt-0.5 text-neutral-400">
+          {{ roundSummary.why }}
+        </p>
+        <p
+          v-if="bankrollCents !== undefined"
+          class="mt-1 font-mono text-neutral-300"
+          data-testid="advisor-bankroll"
+        >
+          Bankroll {{ signed(roundSummary.netCents) }} → ${{ (bankrollCents / 100).toLocaleString() }}
+        </p>
+        <ul
+          v-if="intensity !== 'exam' && roundSummary.moments.length"
+          class="mt-1.5 space-y-0.5 text-neutral-400"
+          data-testid="advisor-moments"
+        >
+          <li
+            v-for="moment in roundSummary.moments"
+            :key="moment"
+          >
+            {{ moment }}
+          </li>
+        </ul>
+      </div>
+
+      <template v-else-if="intensity === 'coach'">
         <div v-if="recommendation">
           <p
             class="text-base font-bold text-[var(--accent-gold)]"

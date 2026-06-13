@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import AdvisorPanel from '../../app/components/panels/AdvisorPanel.vue'
 import CountPanel from '../../app/components/panels/CountPanel.vue'
+import RoundOutcome from '../../app/components/table/RoundOutcome.vue'
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
 import { __resetCountingForTests, countShuffle, countVisibleCard } from '../../app/composables/useCounting'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
@@ -106,5 +107,68 @@ describe('CountPanel', () => {
     await w.find('[data-testid="shuffle-quiz-submit"]').trigger('click')
     expect(store.training.countChecks).toHaveLength(1)
     expect(w.find('[data-testid="shuffle-quiz"]').exists()).toBe(false) // quiz cleared after answering
+  })
+})
+
+describe('AdvisorPanel — round recap', () => {
+  const SUMMARY = {
+    outcome: 'win' as const,
+    netCents: 5000,
+    headline: 'Won $50',
+    why: 'Dealer busted with 23 — your 18 stands.',
+    moments: ['Optimal: stand on hard 18 vs 9 ✓']
+  }
+
+  it('shows headline, why, bankroll change, and moments after a round', async () => {
+    const w = await mountSuspended(AdvisorPanel, {
+      props: {
+        intensity: 'coach', recommendation: null, lastDecision: null, showSideBetCaution: false,
+        roundSummary: SUMMARY, bankrollCents: 55_000
+      }
+    })
+    expect(w.find('[data-testid="advisor-headline"]').text()).toBe('Won $50')
+    expect(w.find('[data-testid="advisor-round"]').text()).toContain('Dealer busted with 23')
+    expect(w.find('[data-testid="advisor-bankroll"]').text()).toBe('Bankroll +$50 → $550')
+    expect(w.find('[data-testid="advisor-moments"]').text()).toContain('Optimal: stand on hard 18 vs 9 ✓')
+    expect(w.text()).not.toContain('Waiting for your turn')
+  })
+
+  it('exam mode shows the outcome but hides the strategy moments', async () => {
+    const w = await mountSuspended(AdvisorPanel, {
+      props: {
+        intensity: 'exam', recommendation: null, lastDecision: null, showSideBetCaution: false,
+        roundSummary: SUMMARY, bankrollCents: 55_000
+      }
+    })
+    expect(w.find('[data-testid="advisor-headline"]').text()).toBe('Won $50')
+    expect(w.find('[data-testid="advisor-moments"]').exists()).toBe(false)
+  })
+})
+
+describe('RoundOutcome', () => {
+  it('renders the big WIN word and signed amount', async () => {
+    const w = await mountSuspended(RoundOutcome, {
+      props: {
+        summary: {
+          outcome: 'win', netCents: 5000, headline: 'Won $50', why: '', moments: []
+        }
+      }
+    })
+    expect(w.find('[data-testid="round-outcome"]').text()).toContain('WIN')
+    expect(w.find('[data-testid="round-outcome-amount"]').text()).toBe('+$50')
+  })
+
+  it('renders LOSE in red for a negative net and nothing when null', async () => {
+    const lose = await mountSuspended(RoundOutcome, {
+      props: {
+        summary: {
+          outcome: 'lose', netCents: -2500, headline: 'Lost $25', why: '', moments: []
+        }
+      }
+    })
+    expect(lose.find('[data-testid="round-outcome"]').text()).toContain('LOSE')
+    expect(lose.find('[data-testid="round-outcome-amount"]').text()).toBe('−$25')
+    const empty = await mountSuspended(RoundOutcome, { props: { summary: null } })
+    expect(empty.find('[data-testid="round-outcome"]').exists()).toBe(false)
   })
 })

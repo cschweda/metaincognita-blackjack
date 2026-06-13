@@ -3,7 +3,8 @@ import type { Action } from '~/utils/engine/hand'
 import { isBlackjack } from '~/utils/engine/hand'
 import type { SideBetKind } from '~/utils/engine/round'
 import { useCounting } from '~/composables/useCounting'
-import { adviseHand, adviseInsurance } from '~/utils/advisor'
+import { adviseHand, adviseInsurance, summarizeRound } from '~/utils/advisor'
+import type { RoundSummary } from '~/utils/advisor'
 import CountPanel from '~/components/panels/CountPanel.vue'
 
 const store = useBlackjackStore()
@@ -36,6 +37,13 @@ const advisorRec = computed(() => {
 const insuranceAdvice = computed(() => {
   if (!store.settings || store.settings.advisor !== 'coach' || phase.value !== 'insurance') return undefined
   return adviseInsurance(counting.tc.value, store.settings.advancedDeviations).reasoning
+})
+
+/** Settled-round recap — non-null only after settlement is fully presented; cleared by the next deal. */
+const roundSummary = computed<RoundSummary | null>(() => {
+  if (phase.value !== 'complete' || !queueIdle.value) return null
+  const last = store.history[store.history.length - 1]
+  return last ? summarizeRound(last) : null
 })
 
 /** True after a deal that carried side stakes — keeps the coach's caution visible through
@@ -169,12 +177,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             :recommendation="advisorRec"
             :last-decision="lastDecision"
             :show-side-bet-caution="store.settings!.advisor === 'coach' && betweenRounds && sideStakesPlaced"
+            :round-summary="roundSummary"
+            :bankroll-cents="store.bankroll"
           />
         </div>
         <div class="pointer-events-auto">
           <CountPanel ref="countPanel" />
         </div>
       </div>
+      <RoundOutcome :summary="roundSummary" />
       <StudyHotspots
         v-if="studyMode && rules"
         :rules="rules"

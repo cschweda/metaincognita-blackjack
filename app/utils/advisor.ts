@@ -6,6 +6,7 @@ import { handTotal, isPair } from './engine/hand'
 import type { ActionEVs } from './engine/basicStrategy'
 import { bestAction, bestActionFull } from './engine/basicStrategy'
 import type { Deviation } from './engine/counting'
+import type { DecisionRecord, RoundRecord } from '../stores/useBlackjackStore'
 import { FAB_4, ILLUSTRIOUS_18, deviationFor } from './engine/counting'
 
 export interface AdvisorInput {
@@ -107,4 +108,140 @@ export function decisionCost(
   const evBook = evs[book]
   if (evAction === undefined || evBook === undefined) return 0
   return Math.max(0, Math.round((evBook - evAction) * bet))
+}
+
+// ── round-outcome summary (spec: docs/superpowers/specs/2026-06-13-round-outcome-presentation-design.md) ──
+
+export interface RoundSummary {
+  outcome: 'win' | 'lose' | 'push' | 'blackjack' | 'mixed'
+  /** Hero hands + side bets + insurance, signed cents. */
+  netCents: number
+  headline: string
+  why: string
+  /** Strategy recap, mistakes first — hidden in exam mode by the panel. */
+  moments: string[]
+}
+
+const ACTION_GERUND: Record<Action, string> = {
+  hit: 'draw on', stand: 'stand on', double: 'double', split: 'split', surrender: 'surrender'
+}
+const ACTION_PAST: Record<Action, string> = {
+  hit: 'drew', stand: 'stood', double: 'doubled', split: 'split', surrender: 'surrendered'
+}
+
+function fmtMoney(cents: number): string {
+  const abs = Math.abs(cents) / 100
+  return `$${abs.toLocaleString(undefined, { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`
+}
+
+function signedMoney(cents: number): string {
+  return `${cents > 0 ? '+' : cents < 0 ? '−' : '±'}${fmtMoney(cents)}`
+}
+
+function situationOf(d: DecisionRecord): string {
+  const up = d.dealerUp.slice(0, -1) // strip the suit glyph: '10♦' → '10'
+  if (d.pair && d.pairBucket !== null) {
+    const rank = d.pairBucket === 11 ? 'aces' : d.pairBucket === 10 ? 'tens' : `${d.pairBucket}s`
+    return `a pair of ${rank} vs ${up}`
+  }
+  return `${d.soft ? 'soft' : 'hard'} ${d.total} vs ${up}`
+}
+
+type RecordedHand = RoundRecord['spots'][number]['hands'][number]
+
+function handResultClause(hand: RecordedHand, dealer: RoundRecord['dealer']): string {
+  const total = hand.total
+  switch (hand.outcome) {
+    case 'surrender':
+      return 'you surrendered for half the bet'
+    case 'blackjack':
+      return 'your blackjack pays before the dealer even plays'
+    case 'push':
+      return total !== undefined ? `your ${total} pushes — bet returned` : 'a push — bet returned'
+    case 'win':
+      if (dealer.busted) return total !== undefined ? `your ${total} stands` : 'your hand stands'
+      return total !== undefined ? `your ${total} wins` : 'your hand wins'
+    default: // lose
+      if (total !== undefined && total > 21) return `your ${total} busted`
+      return total !== undefined ? `beating your ${total}` : 'beating your hand'
+  }
+}
+
+/** Turn a settled round record into the advisor's announcement: headline, why, money, recap. */
+export function summarizeRound(round: RoundRecord): RoundSummary | null {
+  const hero = round.spots.find(s => s.occupant === 'hero')
+  if (!hero || hero.hands.length === 0) return null
+
+  const netCents = hero.hands.reduce((s, h) => s + h.net, 0)
+    + hero.sideBets.reduce((s, b) => s + b.net, 0)
+    + hero.insuranceNet
+
+  const outcomes = new Set(hero.hands.map(h => h.outcome))
+  const outcome: RoundSummary['outcome']
+    = hero.hands.length > 1 && outcomes.size > 1
+      ? 'mixed'
+      : outcomes.has('blackjack')
+        ? 'blackjack'
+        : outcomes.has('win')
+          ? 'win'
+          : outcomes.has('push')
+            ? 'push'
+            : 'lose'
+
+  const headline
+    = outcome === 'blackjack'
+      ? `Blackjack! ${signedMoney(netCents)}`
+      : outcome === 'mixed'
+        ? `Split hands: ${signedMoney(netCents)}`
+        : netCents > 0
+          ? `Won ${fmtMoney(netCents)}`
+          : netCents < 0
+            ? `Lost ${fmtMoney(netCents)}`
+            : 'Push — bet returned'
+
+  const dealerPart = round.dealer.blackjack
+    ? 'Dealer had blackjack'
+    : round.dealer.busted
+      ? `Dealer busted with ${round.dealer.total}`
+      : `Dealer made ${round.dealer.total}`
+
+  let why: string
+  if (hero.hands.length > 1) {
+    const parts = hero.hands.map((h, i) => {
+      const t = h.total !== undefined ? `${h.total} ` : ''
+      const verb = h.outcome === 'win' ? 'won' : h.outcome === 'push' ? 'pushed' : h.outcome === 'blackjack' ? 'blackjack' : 'lost'
+      return `hand ${i + 1} ${t}${verb}`
+    })
+    why = `${dealerPart} — ${parts.join(', ')}.`
+  } else {
+    const hand = hero.hands[0]!
+    const clause = handResultClause(hand, round.dealer)
+    if (hand.outcome === 'lose' && !round.dealer.busted && !round.dealer.blackjack
+      && !(hand.total !== undefined && hand.total > 21)) {
+      why = `Dealer's ${round.dealer.total} beats ${clause.replace('beating ', '')}.`
+    } else {
+      why = `${dealerPart} — ${clause}.`
+    }
+  }
+
+  const decisions = round.heroDecisions ?? []
+  const mistakes = decisions.filter(d => !d.correct).map(d =>
+    `Book: ${ACTION_GERUND[d.book]} ${situationOf(d)} — you ${ACTION_PAST[d.action]}${d.costCents > 0 ? ` (cost ${fmtMoney(d.costCents)})` : ''}`)
+  const confirmations = decisions.filter(d => d.correct).map(d =>
+    d.deviationId
+      ? `Count call: ${ACTION_GERUND[d.action]} ${situationOf(d)} at TC ${d.tc.toFixed(1)} ✓`
+      : `Optimal: ${ACTION_GERUND[d.action]} ${situationOf(d)} ✓`)
+  const moments = [...mistakes, ...confirmations]
+  if (round.heroInsurance) {
+    const ins = round.heroInsurance
+    if (!ins.correct) {
+      moments.push(ins.took === null
+        ? `Count said take insurance (TC ${ins.tc.toFixed(1)}) — you declined`
+        : 'Insurance is the book\'s worst bet — skip it')
+    } else if (ins.took !== null) {
+      moments.push(`Insurance at TC ${ins.tc.toFixed(1)} ✓`)
+    }
+  }
+
+  return { outcome, netCents, headline, why, moments: moments.slice(0, 4) }
 }

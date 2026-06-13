@@ -73,7 +73,7 @@ export interface RoundRecord {
   dealer: { cards: string[], total: number, blackjack: boolean, busted: boolean }
   spots: Array<{
     occupant: 'hero' | PersonaId
-    hands: Array<{ cards: string[], bet: number, outcome: string, net: number, doubled: boolean, fromSplit: boolean }>
+    hands: Array<{ cards: string[], bet: number, outcome: string, net: number, doubled: boolean, fromSplit: boolean, total?: number, soft?: boolean }>
     sideBets: Array<{ name: string, stake: number, net: number, label: string }>
     insuranceNet: number
   }>
