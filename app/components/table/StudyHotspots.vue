@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import type { RuleSet } from '~/utils/engine/rules'
+import { houseEdge } from '~/utils/engine/basicStrategy'
 
 const props = defineProps<{
   rules: RuleSet
 }>()
+
+/** Rule-cost callouts computed from the engine, never transcribed (guidelines §2.2/§4). */
+const h17DeltaPct = computed(() => {
+  const s17 = houseEdge({ ...props.rules, dealerHitsSoft17: false })
+  const h17 = houseEdge({ ...props.rules, dealerHitsSoft17: true })
+  return ((h17 - s17) * 100).toFixed(1)
+})
+const payoutDeltaPct = computed(() => {
+  const full = houseEdge({ ...props.rules, blackjackPayout: '3:2' })
+  const short = houseEdge({ ...props.rules, blackjackPayout: '6:5' })
+  return ((short - full) * 100).toFixed(1)
+})
 
 interface Hotspot {
   id: string
@@ -34,7 +47,7 @@ const hotspots = computed<Hotspot[]>(() => [
     top: '20%',
     title: props.rules.dealerHitsSoft17 ? 'Dealer hits soft 17' : 'Dealer stands on all 17s',
     body: props.rules.dealerHitsSoft17
-      ? 'H17 adds roughly 0.2% to the house edge versus S17 — the dealer re-draws soft 17s into stronger hands more often than it busts.'
+      ? `H17 adds ≈${h17DeltaPct.value}% to the house edge versus S17 — the dealer re-draws soft 17s into stronger hands more often than it busts.`
       : 'S17 is the player-friendly variant: the dealer freezes on every 17, soft or hard (MA §12(b)).'
   },
   {
@@ -49,7 +62,7 @@ const hotspots = computed<Hotspot[]>(() => [
     left: '50%',
     top: '74%',
     title: 'Betting spot',
-    body: `Main bet circle (table $${props.rules.minBet / 100}–$${props.rules.maxBet / 100}) plus any enabled side-bet circles. Side bets run a far higher edge than the main game — ${props.rules.blackjackPayout === '6:5' ? 'and 6:5 blackjack costs you another ~1.4% on top.' : 'the 3:2 main game is the best bet on this felt.'}`
+    body: `Main bet circle (table $${props.rules.minBet / 100}–$${props.rules.maxBet / 100}) plus any enabled side-bet circles. Side bets run a far higher edge than the main game — ${props.rules.blackjackPayout === '6:5' ? `and 6:5 blackjack costs you another ≈${payoutDeltaPct.value}% on top.` : 'the 3:2 main game is the best bet on this felt.'}`
   }
 ])
 </script>

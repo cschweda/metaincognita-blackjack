@@ -7,8 +7,6 @@ const props = withDefaults(defineProps<{
   rng?: () => number
 }>(), { rng: () => Math.random() })
 
-const store = useBlackjackStore()
-
 const ANSWERS = [-2, -1, 0, 1, 2]
 
 // pairs come sequentially from one shuffled deck (reshuffled when it runs out),
@@ -18,7 +16,7 @@ const pair = ref<Card[]>([])
 const phase = ref<'play' | 'verdict'>('play')
 const picked = ref(0)
 const correct = ref(false)
-const streak = ref(0)
+const { streak, best, grade } = useDrillStreak('pair-cancel')
 
 function tagText(card: Card): string {
   const t = hiLoValue(card)
@@ -55,12 +53,7 @@ function nextPair(): void {
 function answer(value: number): void {
   picked.value = value
   correct.value = value === net.value
-  if (correct.value) {
-    streak.value++
-    store.recordDrillBest('pair-cancel', streak.value)
-  } else {
-    streak.value = 0
-  }
+  grade(correct.value)
   phase.value = 'verdict'
 }
 
@@ -69,10 +62,10 @@ nextPair()
 
 <template>
   <div class="space-y-3">
-    <div class="flex items-center justify-between text-xs text-neutral-400">
-      <span>Streak: <span class="font-mono font-bold text-[var(--accent-gold)]">{{ streak }}</span></span>
-      <span>Best: <span class="font-mono">{{ store.training.drillBests['pair-cancel'] ?? 0 }}</span></span>
-    </div>
+    <DrillScoreHeader
+      :streak="streak"
+      :best="best"
+    />
 
     <p class="text-xs text-neutral-400">
       Real counters read pairs, not cards: a high–low pair cancels and gets skipped.

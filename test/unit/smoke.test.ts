@@ -1,7 +1,0 @@
-import { describe, expect, it } from 'vitest'
-
-describe('smoke', () => {
-  it('runs the unit test project', () => {
-    expect(true).toBe(true)
-  })
-})

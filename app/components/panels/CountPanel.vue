@@ -44,7 +44,7 @@ defineExpose({ focusCheck })
   >
     <button
       type="button"
-      class="mb-1.5 flex w-full items-center justify-between font-semibold uppercase tracking-wide text-neutral-500"
+      class="mb-1.5 flex w-full items-center justify-between font-semibold uppercase tracking-wide text-neutral-400"
       :aria-expanded="open"
       data-testid="count-toggle"
       @click="open = !open"
@@ -69,7 +69,7 @@ defineExpose({ focusCheck })
       </div>
 
       <div v-else>
-        <p class="text-neutral-500">
+        <p class="text-neutral-400">
           Count hidden — keep it in your head, press <kbd class="rounded bg-neutral-800 px-1">C</kbd> to check.
         </p>
         <div class="mt-1.5 flex items-center gap-1.5">

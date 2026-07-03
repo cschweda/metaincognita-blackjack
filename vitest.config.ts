@@ -28,7 +28,13 @@ export default defineConfig({
       })
     ],
     coverage: {
-      provider: 'v8'
+      provider: 'v8',
+      // the TS logic layers only — .vue rendering is exercised by the nuxt/e2e suites
+      include: ['app/utils/**', 'app/composables/**', 'app/stores/**', 'app/workers/**'],
+      // the engine is the heart — hold it to a high floor
+      thresholds: {
+        'app/utils/engine/**': { statements: 90, branches: 85, functions: 90, lines: 90 }
+      }
     }
   }
 })

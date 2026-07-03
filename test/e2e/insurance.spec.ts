@@ -16,5 +16,5 @@ test('even money pays 1:1 immediately on a blackjack vs ace', async ({ page, got
   await expect(page.getByTestId('even-money')).toBeVisible()
   await page.getByTestId('even-money').click()
   await expect(page.getByTestId('deal')).toBeVisible()
-  await expect(page.locator('nav').first()).toContainText('$525') // 500 + 25
+  await expect(page.getByTestId('nav-bankroll')).toHaveText('$525') // 500 + 25 even money
 })

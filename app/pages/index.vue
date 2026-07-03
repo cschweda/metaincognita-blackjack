@@ -45,7 +45,9 @@ const rulesValid = computed(() => validateRuleSet(activeRules.value).length === 
 
 const hasSavedSession = ref(false)
 onMounted(() => {
-  hasSavedSession.value = !store.sessionActive && store.restore()
+  // a session already restored by another page still deserves the Resume banner —
+  // otherwise the setup form invites silently overwriting it
+  hasSavedSession.value = store.sessionActive || store.restore()
 })
 
 function resumeSession(): void {

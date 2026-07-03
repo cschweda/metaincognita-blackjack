@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RoundSummary } from '~/utils/advisor'
+import { signedCents } from '~/utils/format'
 
 const props = defineProps<{
   summary: RoundSummary | null
@@ -18,9 +19,7 @@ const word = computed(() => {
 const amount = computed(() => {
   const s = props.summary
   if (!s || s.netCents === 0) return ''
-  const abs = Math.abs(s.netCents) / 100
-  const formatted = abs.toLocaleString(undefined, { minimumFractionDigits: s.netCents % 100 === 0 ? 0 : 2 })
-  return `${s.netCents > 0 ? '+' : '−'}$${formatted}`
+  return signedCents(s.netCents)
 })
 
 const colorClass = computed(() => {

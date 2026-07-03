@@ -30,6 +30,7 @@ const cards = computed(() => Object.entries(PRESETS)
       type="button"
       class="rounded-lg border p-3 text-left transition-colors"
       :class="selected === card.key ? 'border-[var(--accent-gold)] bg-neutral-900' : 'border-neutral-800 bg-neutral-900/50 hover:border-neutral-600'"
+      :aria-pressed="selected === card.key"
       :data-testid="`preset-${card.key}`"
       @click="selected = card.key"
     >
@@ -55,6 +56,7 @@ const cards = computed(() => Object.entries(PRESETS)
       type="button"
       class="rounded-lg border border-dashed p-3 text-left transition-colors"
       :class="selected === 'CUSTOM' ? 'border-[var(--accent-gold)] bg-neutral-900' : 'border-neutral-700 hover:border-neutral-500'"
+      :aria-pressed="selected === 'CUSTOM'"
       data-testid="preset-CUSTOM"
       @click="selected = 'CUSTOM'"
     >

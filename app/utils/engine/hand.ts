@@ -73,9 +73,10 @@ export function newHand(
 export function legalActions(hand: PlayHand, handCountAtSpot: number, rules: RuleSet): Action[] {
   if (hand.resolved || hand.surrendered || hand.doubled || isBust(hand.cards)) return []
 
-  // Split aces: one card each (MA §11(c)(2), AC guide, WA) — only resplitting another ace is possible
+  // Split aces: one card each (MA §11(c)(2), AC guide, WA) — drawing another ace offers an
+  // OPTIONAL resplit; the player may always keep the hand instead
   if (hand.splitAces && hand.cards.length >= 2) {
-    if (isPair(hand.cards) && rules.resplitAces && handCountAtSpot < rules.maxSplitHands) return ['split']
+    if (isPair(hand.cards) && rules.resplitAces && handCountAtSpot < rules.maxSplitHands) return ['split', 'stand']
     return []
   }
 

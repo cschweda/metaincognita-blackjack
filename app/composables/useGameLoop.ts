@@ -411,11 +411,11 @@ function finalizeRound(): void {
     const state = store.botStates[id]
     if (!spot || !state) continue
     const first = spot.hands[0]!
-    const last = first.outcome === 'blackjack' ? 'win' : first.outcome === 'surrender' ? 'lose' : first.outcome ?? 'push'
+    const last = (first.outcome === 'blackjack' ? 'win' : first.outcome === 'surrender' ? 'lose' : first.outcome ?? 'push') as 'win' | 'lose' | 'push'
     const persona = PERSONAS.find(p => p.id === id)!
-    state.last = last as 'win' | 'lose' | 'push'
-    state.bet = persona.nextBet(state.bet, state.last, store.settings!.rules, quipRng)
+    store.advanceBotState(id, last, persona.nextBet(state.bet, last, store.settings!.rules, quipRng))
   }
+  store.setRoundTrail(null)
   store.saveSnapshot(null)
 }
 
@@ -423,6 +423,11 @@ function snapshotToStore(): void {
   if (!game) return
   const store = useBlackjackStore()
   try {
+    store.setRoundTrail({
+      visible: [...visibleThisRound],
+      decisions: [...decisionsThisRound],
+      insurance: insuranceThisRound
+    })
     store.saveSnapshot(game.snapshot())
   } catch { /* snapshot unsupported (test shoe) — skip */ }
 }
@@ -457,7 +462,17 @@ export function useGameLoop() {
       && s.hands.some(h => !h.resolved && h.outcome === null))
     if (pendingBefore) return []
     if (!spot.hands.some(h => !h.resolved && h.outcome === null)) return []
-    return game.legalFor(spot.spotId)
+    const acts = game.legalFor(spot.spotId)
+    const hand = spot.hands[spot.activeHandIndex]
+    if (!hand || (!acts.includes('double') && !acts.includes('split'))) return acts
+    // Mid-round outlays are not escrowed (money only moves at settlement), so a double or
+    // split must fit in what the bankroll has left after every stake still riding
+    const unresolvedBets = spot.hands.reduce((s, h) => s + (h.outcome === null ? h.bet : 0), 0)
+    const stakedSide = Object.values(spot.sideBets).reduce((s, v) => s + (v ?? 0), 0)
+    const settledSide = spot.sideBetResults.reduce((s, r) => s + r.stake, 0)
+    const pendingInsurance = spot.insuranceBet && spot.insuranceNet === 0 ? spot.insuranceBet : 0
+    const available = store.bankroll - unresolvedBets - (stakedSide - settledSide) - pendingInsurance
+    return acts.filter(a => (a !== 'double' && a !== 'split') || hand.bet <= available)
   })
   const canAct = computed(() => legalActions.value.length > 0)
   const inPlay = computed(() => {
@@ -473,8 +488,12 @@ export function useGameLoop() {
   })
   const heroTurn = computed(() => {
     void gameGen.value
-    // canAct is also the refresh trigger: canAct → legalActions → queueIdle, so every pump
-    // cycle (incl. split-hand advances) recomputes this — gameGen alone would go stale
+    // the engine is non-reactive, so invalidation must come from presentation state.
+    // canAct alone is NOT enough: across a split-hand advance its value stays true→true
+    // and Vue's computed stability skips dependents — read queueIdle and the presented
+    // activeHandIndex directly so every pump cycle genuinely recomputes this
+    void queueIdle.value
+    void spotViewFor(heroSpot())?.activeHandIndex
     if (!game || !canAct.value) return null
     const spot = game.spots.find(s => s.spotId === heroSpot())
     const hand = spot?.hands[spot.activeHandIndex]
@@ -493,6 +512,8 @@ export function useGameLoop() {
     attach(new BlackjackGame(settings.rules, { seed: seed ?? randomSeed() }))
     quipRng = mulberry32(seed ?? randomSeed())
     milestones = freshMilestones(bankroll)
+    roundCounter = 0
+    lastDecision.value = null
     resetPresentation()
     resetCounting()
   }
@@ -501,15 +522,29 @@ export function useGameLoop() {
     if (!store.sessionActive && !store.restore()) return false
     if (!store.settings) return false
     milestones = freshMilestones(store.bankroll)
+    // history numbering must continue, not restart at 1 with duplicate keys
+    roundCounter = store.history[store.history.length - 1]?.round ?? 0
+    lastDecision.value = null
     if (store.roundSnapshot) {
-      attach(BlackjackGame.restore(store.roundSnapshot))
-      fastForwardPresentation()
-      restoreCounting()
-    } else {
-      attach(new BlackjackGame(store.settings.rules, { seed: randomSeed() }))
-      resetPresentation()
-      resetCounting()
+      try {
+        attach(BlackjackGame.restore(store.roundSnapshot))
+        fastForwardPresentation()
+        restoreCounting()
+        // rebuild the in-flight round's trail so the eventual record stays complete
+        visibleThisRound = [...(store.roundTrail?.visible ?? [])]
+        decisionsThisRound = [...(store.roundTrail?.decisions ?? [])]
+        insuranceThisRound = store.roundTrail?.insurance ?? null
+        return true
+      } catch {
+        // corrupt snapshot: clear it for good and fall through to a fresh shoe —
+        // never leave /table re-throwing on every visit
+        store.setRoundTrail(null)
+        store.saveSnapshot(null)
+      }
     }
+    attach(new BlackjackGame(store.settings.rules, { seed: randomSeed() }))
+    resetPresentation()
+    resetCounting()
     return true
   }
 
@@ -579,10 +614,12 @@ export function useGameLoop() {
     void pump()
   }
 
-  function act(action: Action): void {
+  function act(action: Action, expectedHandIndex?: number): void {
     if (!game) throw new Error('no active game')
     if (!canAct.value) throw new Error('cannot act while the table is presenting')
     const spot = game.spots.find(s => s.spotId === heroSpot())!
+    // a double-click's second click arrives after the hand advanced — drop the stale action
+    if (expectedHandIndex !== undefined && spot.activeHandIndex !== expectedHandIndex) return
     const hand = spot.hands[spot.activeHandIndex]!
     const tc = counting.tc.value
     const rec = adviseHand(
@@ -627,18 +664,25 @@ export function useGameLoop() {
   }
 
   function heroInsurance(decision: number | 'even-money' | null): void {
-    if (!game) throw new Error('no active game')
+    // guard against clicks during the post-decision presentation and repeated decisions —
+    // stats are persisted, so nothing may be recorded before the engine accepts the play
+    if (!game || game.phase !== 'insurance' || !queueIdle.value) return
     const adv = adviseInsurance(counting.tc.value, store.settings!.advancedDeviations)
-    insuranceThisRound = {
+    const record: InsuranceRecord = {
       took: decision,
       book: adv.take ? 'take' : 'decline',
       correct: adv.take ? decision !== null : decision === null,
       rc: counting.rc.value,
       tc: Math.round(counting.tc.value * 10) / 10
     }
-    store.recordInsuranceDecision(insuranceThisRound)
-    game.insuranceDecision(heroSpot(), decision)
-    game.finishInsurance()
+    try {
+      game.insuranceDecision(heroSpot(), decision)
+      game.finishInsurance()
+    } catch {
+      return // engine rejected the decision — insurance stays open, nothing recorded
+    }
+    insuranceThisRound = record
+    store.recordInsuranceDecision(record)
     void pump()
   }
 
@@ -646,6 +690,7 @@ export function useGameLoop() {
     unsubscribe?.()
     game = null
     gameGen.value++
+    lastDecision.value = null
     store.clearAll()
     resetPresentation()
     resetCounting()

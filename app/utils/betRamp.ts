@@ -6,6 +6,9 @@ import type { RuleSet } from './engine/rules'
 import { BlackjackGame } from './engine/round'
 import { CountTracker } from './engine/counting'
 import { decideFor } from './engine/bots'
+import { actionEVs } from './engine/basicStrategy'
+import { handTotal } from './engine/hand'
+import { bucketOf } from './engine/cards'
 
 export interface BetRamp {
   /** One betting unit, in cents. */
@@ -91,6 +94,15 @@ function decksLeft(rules: RuleSet, cardsSeen: number): number {
   return Math.max(0.5, Math.round(remaining * 2) / 2)
 }
 
+/** The count a bet may be sized on: when the cut card is out, the next round starts from a
+ *  fresh shoe — a real counter sees the shuffle before wagering, so the dead count is void. */
+export function bettingTc(
+  shoe: { needsShuffle(): boolean }, tracker: CountTracker, rules: RuleSet
+): number {
+  if (shoe.needsShuffle()) return 0
+  return tracker.trueCount(decksLeft(rules, tracker.cardsSeen))
+}
+
 interface CountedGame {
   game: BlackjackGame
   tracker: CountTracker
@@ -108,20 +120,44 @@ function countedGame(rules: RuleSet, seed: number): CountedGame {
 }
 
 /** Auto-play one round at perfect book (Bea is the engine's basic-strategy player);
- *  insurance taken only at TC ≥ +3 (Illustrious 18 #1). Returns the hero's net, cents. */
-function playRound(cg: CountedGame, betCents: number, rules: RuleSet): number {
+ *  insurance taken only at TC ≥ +3 (Illustrious 18 #1). Returns the hero's net, cents.
+ *  When bankrollCents is given, doubles/splits/insurance are capped to real money —
+ *  like a live player, the book play degrades to the best affordable alternative. */
+function playRound(cg: CountedGame, betCents: number, rules: RuleSet, bankrollCents?: number): number {
   const { game, tracker } = cg
   game.beginRound([{ spotId: 0, mainBet: betCents }])
+  const committed = (): number => {
+    const spot = game.spots[0]!
+    return spot.hands.reduce((s, h) => s + (h.outcome === null ? h.bet : 0), 0)
+      + (spot.insuranceBet ?? 0)
+  }
   if (game.phase === 'insurance') {
     const spot = game.spots[0]!
     const tc = tracker.trueCount(decksLeft(rules, tracker.cardsSeen))
-    game.insuranceDecision(0, tc >= 3 ? Math.floor(spot.hands[0]!.bet / 2) : null)
+    const wanted = Math.floor(spot.hands[0]!.bet / 2)
+    const affordable = bankrollCents === undefined || wanted <= bankrollCents - committed()
+    game.insuranceDecision(0, tc >= 3 && affordable ? wanted : null)
     game.finishInsurance()
   }
   while (game.phase === 'playerTurns') {
     const spot = game.spots[0]!
     const hand = spot.hands[spot.activeHandIndex]!
-    game.act(0, decideFor('bea', hand, spot.hands.length, game.dealerUp!, rules))
+    let action = decideFor('bea', hand, spot.hands.length, game.dealerUp!, rules)
+    if (bankrollCents !== undefined && (action === 'double' || action === 'split')
+      && hand.bet > bankrollCents - committed()) {
+      if (action === 'split') {
+        // an unsplittable pair is just a hard total — a maxed hand count forces that path
+        action = decideFor('bea', hand, rules.maxSplitHands, game.dealerUp!, rules)
+      }
+      if (action === 'double' || action === 'split') {
+        const { total, soft } = handTotal(hand.cards)
+        const evs = actionEVs(
+          { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit },
+          bucketOf(game.dealerUp!), rules)
+        action = evs.stand >= evs.hit ? 'stand' : 'hit'
+      }
+    }
+    game.act(0, action)
   }
   const spot = game.spots[0]!
   return spot.hands.reduce((s, h) => s + h.netResult, 0) + spot.insuranceNet
@@ -133,7 +169,7 @@ export function tcFrequencies(rules: RuleSet, rounds: number, seed: number): TcF
   const counts = [0, 0, 0, 0, 0, 0]
   const tcSums = [0, 0, 0, 0, 0, 0]
   for (let r = 0; r < rounds; r++) {
-    const tc = cg.tracker.trueCount(decksLeft(rules, cg.tracker.cardsSeen))
+    const tc = bettingTc(cg.game.shoe, cg.tracker, rules)
     const b = bucketForTc(tc)
     counts[b]!++
     tcSums[b]! += tc
@@ -205,24 +241,24 @@ export function simulateTrajectories(
     let dead = false
     for (let r = 0; r < rounds; r++) {
       if (!dead) {
-        const tc = cg.tracker.trueCount(decksLeft(rules, cg.tracker.cardsSeen))
+        const tc = bettingTc(cg.game.shoe, cg.tracker, rules)
         const wonged = ramp.wongOut && bucketForTc(tc) === 0
         if (!wonged && bankroll < rules.minBet) {
           dead = true
         } else {
           const wanted = wonged ? rules.minBet : betForTc(ramp, tc, rules)
           const bet = wonged ? rules.minBet : Math.min(wanted, bankroll)
-          const net = playRound(cg, Math.max(rules.minBet, bet), rules)
+          const net = playRound(cg, Math.max(rules.minBet, bet), rules, wonged ? undefined : bankroll)
           if (!wonged) bankroll += net
           if (bankroll < rules.minBet) dead = true
         }
       }
-      if ((r + 1) % sampleEvery === 0) samples.push(dead ? Math.min(bankroll, 0) : bankroll)
+      if ((r + 1) % sampleEvery === 0) samples.push(bankroll) // dead keeps its true residue
     }
     while (samples.length < sampleCount + 1) samples.push(samples[samples.length - 1]!)
     cg.unsubscribe()
     if (dead) ruined++
-    finalSum += dead ? 0 : bankroll
+    finalSum += bankroll
     series.push(samples)
     if (onProgress && ((t + 1) % 5 === 0 || t + 1 === trajectories)) onProgress((t + 1) / trajectories)
   }

@@ -51,7 +51,7 @@ const open = ref(true) // collapsible (spec §6)
   <div class="rounded-lg border border-neutral-800 bg-neutral-950/85 p-2.5 text-xs backdrop-blur">
     <button
       type="button"
-      class="mb-1.5 flex w-full items-center justify-between font-semibold uppercase tracking-wide text-neutral-500"
+      class="mb-1.5 flex w-full items-center justify-between font-semibold uppercase tracking-wide text-neutral-400"
       :aria-expanded="open"
       data-testid="advisor-toggle"
       @click="open = !open"
@@ -123,7 +123,7 @@ const open = ref(true) // collapsible (spec §6)
               <tr
                 v-for="row in evRows"
                 :key="row.action"
-                :class="row.action === recommendation.action ? 'text-[var(--accent-cream)]' : 'text-neutral-500'"
+                :class="row.action === recommendation.action ? 'text-[var(--accent-cream)]' : 'text-neutral-400'"
               >
                 <td>{{ row.label }}</td>
                 <td class="text-right">
@@ -135,7 +135,7 @@ const open = ref(true) // collapsible (spec §6)
         </div>
         <p
           v-else
-          class="text-neutral-500"
+          class="text-neutral-400"
         >
           Waiting for your turn…
         </p>
@@ -162,7 +162,7 @@ const open = ref(true) // collapsible (spec §6)
         </div>
         <p
           v-else
-          class="text-neutral-500"
+          class="text-neutral-400"
         >
           Feedback appears after each decision.
         </p>
@@ -170,7 +170,7 @@ const open = ref(true) // collapsible (spec §6)
 
       <p
         v-else
-        class="text-neutral-500"
+        class="text-neutral-400"
         data-testid="advisor-exam"
       >
         Exam mode — decisions are graded silently in History.

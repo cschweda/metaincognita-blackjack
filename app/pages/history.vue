@@ -1,25 +1,26 @@
 <script setup lang="ts">
 import { OUTCOME_BADGE } from '~/utils/outcomeBadges'
 import { pctEV } from '~/utils/advisor'
+import { signedCents } from '~/utils/format'
 
 const store = useBlackjackStore()
 onMounted(() => {
   if (!store.sessionActive) store.restore()
 })
 
-const rounds = computed(() => [...store.history].reverse())
-
-function heroNet(round: (typeof rounds.value)[number]): number {
+/** Newest first, hero net precomputed once per round (not per template reference). */
+const rounds = computed(() => [...store.history].reverse().map((round) => {
   const hero = round.spots.find(s => s.occupant === 'hero')
-  if (!hero) return 0
-  return hero.hands.reduce((sum, h) => sum + h.net, 0)
+  const net = hero
+    ? hero.hands.reduce((sum, h) => sum + h.net, 0)
     + hero.sideBets.reduce((sum, b) => sum + b.net, 0)
     + hero.insuranceNet
-}
+    : 0
+  return { ...round, heroNet: net }
+}))
 
 function money(cents: number): string {
-  const sign = cents > 0 ? '+' : cents < 0 ? '−' : ''
-  return `${sign}$${(Math.abs(cents) / 100).toLocaleString()}`
+  return signedCents(cents, { zeroSign: '' })
 }
 
 function time(at: number): string {
@@ -52,8 +53,8 @@ function time(at: number): string {
         <span class="text-xs text-neutral-400">{{ time(round.at) }}</span>
         <span
           class="ml-auto font-mono font-semibold"
-          :class="heroNet(round) > 0 ? 'text-emerald-400' : heroNet(round) < 0 ? 'text-red-400' : 'text-neutral-400'"
-        >{{ money(heroNet(round)) }}</span>
+          :class="round.heroNet > 0 ? 'text-emerald-400' : round.heroNet < 0 ? 'text-red-400' : 'text-neutral-400'"
+        >{{ money(round.heroNet) }}</span>
       </header>
 
       <p class="mt-1 text-xs text-neutral-400">

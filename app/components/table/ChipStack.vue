@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatCents } from '~/utils/format'
 
 const props = withDefaults(defineProps<{
   amount: number // cents
@@ -27,7 +28,7 @@ const chips = computed(() => {
   return out
 })
 
-const dollars = computed(() => `$${(props.amount / 100).toLocaleString()}`)
+const dollars = computed(() => formatCents(props.amount))
 const px = computed(() => (props.size === 'sm' ? 22 : 30))
 </script>
 
@@ -35,6 +36,7 @@ const px = computed(() => (props.size === 'sm' ? 22 : 30))
   <div
     v-if="amount > 0"
     class="relative inline-flex flex-col-reverse items-center"
+    role="img"
     :title="dollars"
     :aria-label="`Bet ${dollars}`"
   >

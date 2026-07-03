@@ -8,6 +8,7 @@ import { bestAction, bestActionFull } from './engine/basicStrategy'
 import type { Deviation } from './engine/counting'
 import type { DecisionRecord, RoundRecord } from '../stores/useBlackjackStore'
 import { FAB_4, ILLUSTRIOUS_18, deviationFor } from './engine/counting'
+import { formatCents, signedCents } from './format'
 
 export interface AdvisorInput {
   cards: Card[]
@@ -72,7 +73,8 @@ export function adviseHand(
   if (advanced) {
     const pool = rules.surrender === 'late' ? [...ILLUSTRIOUS_18, ...FAB_4] : ILLUSTRIOUS_18
     const dev = deviationFor(
-      { total, soft, pair: pairHand ? bucketOf(input.cards[0]!) : null }, upB, tc, pool)
+      { total, soft, pair: pairHand ? bucketOf(input.cards[0]!) : null }, upB, tc, pool,
+      legal.includes('surrender'))
     if (dev && dev.play !== 'take-insurance' && legal.includes(dev.play as Action)) {
       deviation = dev
       action = dev.play as Action
@@ -129,14 +131,7 @@ const ACTION_PAST: Record<Action, string> = {
   hit: 'drew', stand: 'stood', double: 'doubled', split: 'split', surrender: 'surrendered'
 }
 
-function fmtMoney(cents: number): string {
-  const abs = Math.abs(cents) / 100
-  return `$${abs.toLocaleString(undefined, { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`
-}
-
-function signedMoney(cents: number): string {
-  return `${cents > 0 ? '+' : cents < 0 ? '−' : '±'}${fmtMoney(cents)}`
-}
+// money formatting: the shared family helpers in ~/utils/format
 
 function situationOf(d: DecisionRecord): string {
   const up = d.dealerUp.slice(0, -1) // strip the suit glyph: '10♦' → '10'
@@ -190,13 +185,13 @@ export function summarizeRound(round: RoundRecord): RoundSummary | null {
 
   const headline
     = outcome === 'blackjack'
-      ? `Blackjack! ${signedMoney(netCents)}`
+      ? `Blackjack! ${signedCents(netCents)}`
       : outcome === 'mixed'
-        ? `Split hands: ${signedMoney(netCents)}`
+        ? `Split hands: ${signedCents(netCents)}`
         : netCents > 0
-          ? `Won ${fmtMoney(netCents)}`
+          ? `Won ${formatCents(netCents)}`
           : netCents < 0
-            ? `Lost ${fmtMoney(netCents)}`
+            ? `Lost ${formatCents(netCents)}`
             : 'Push — bet returned'
 
   const dealerPart = round.dealer.blackjack
@@ -226,7 +221,7 @@ export function summarizeRound(round: RoundRecord): RoundSummary | null {
 
   const decisions = round.heroDecisions ?? []
   const mistakes = decisions.filter(d => !d.correct).map(d =>
-    `Book: ${ACTION_GERUND[d.book]} ${situationOf(d)} — you ${ACTION_PAST[d.action]}${d.costCents > 0 ? ` (cost ${fmtMoney(d.costCents)})` : ''}`)
+    `Book: ${ACTION_GERUND[d.book]} ${situationOf(d)} — you ${ACTION_PAST[d.action]}${d.costCents > 0 ? ` (cost ${formatCents(d.costCents)})` : ''}`)
   const confirmations = decisions.filter(d => d.correct).map(d =>
     d.deviationId
       ? `Count call: ${ACTION_GERUND[d.action]} ${situationOf(d)} at TC ${d.tc.toFixed(1)} ✓`

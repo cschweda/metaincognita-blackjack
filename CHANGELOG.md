@@ -5,6 +5,80 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
+### Fixed (training correctness)
+- Deviation Quiz derives the book play from the EV engine under the active rules instead of a
+  hand-rolled reverse mapping — the five negative-count Illustrious-18 reversals no longer
+  render two identical "hit" buttons, and deviations that are simply book under the active
+  rules (e.g. 11vA-double at H17) leave the question pool
+- Advisor deviation scope: total-based deviations no longer fire on splittable pairs
+  (8,8 vs T is a split, never a 16vT stand); with late surrender legal, the stand deviations
+  compete with surrender's fixed −0.50 EV via composite indices (16vT stands only at TC ≥ +4,
+  16v9 at +5, 15vT never) — correct surrenders are no longer graded as mistakes
+- Deviation boundary convention matches the published tables: negative-index reversals fire
+  strictly below the index; Fab-4 15vT reversal uses its published index 0
+- Mid-round rack reshuffles (MA §15(g)) now emit a shuffle event, so the running count resets
+  instead of double-counting recycled discards
+
+### Fixed (engine rules)
+- No-peek games implement the documented full-loss model correctly end to end: blackjacks are
+  held until the reveal (standoff vs a dealer natural, 3:2 after a miss), a multi-card 21
+  loses to a revealed natural, insurance settles at the reveal instead of via a hidden peek,
+  and a deferred Lucky Ladies Q♥ pair can still hit the 1000:1 dealer-BJ tier
+- Five-card 21 vs a dealer 21 is a void wager (push) per MA §16(b), not a 2:1 win
+- Buster-only forced dealer completion draws to hard 17 / soft 18 (MA §27(f)(3)(ii)) even at
+  S17 tables
+- Resplitting aces is optional — a re-paired split ace offers stand alongside split
+- MA preset caps splits at three hands (§11(e) at a seven-box table); Bally's Lucky Ladies
+  uses pay Table A per the gaming guide ("up to 125 to 1" + 1000:1 bonus)
+
+### Fixed (money & state integrity)
+- Double, split, and insurance are withheld when the bankroll cannot cover the extra stake —
+  the bankroll can no longer go negative
+- Insurance decisions are guarded against double-clicks and presentation races: nothing is
+  recorded until the engine accepts the play, the buttons freeze while the table presents,
+  and the offered amount comes from the live hand (correct after a mid-round refresh)
+- Deal has a double-click cooldown; indexed hero actions drop stale double-clicks aimed at a
+  hand that already advanced (plus a heroTurn reactivity fix so split-hand advances always
+  recompute the live hand)
+- Round numbering continues after a refresh; a corrupt mid-round snapshot falls back to a
+  fresh shoe instead of bricking /table; the in-flight round's card/decision trail survives a
+  refresh; lastDecision no longer leaks across sessions; the Resume banner shows even when
+  another page restored the session first; old-version storage payloads are backed up before
+  removal; cross-tab writes to the session key raise a warning at the table
+- Bet Lab worker protocol keys every reply (a slow answer can never poison another preset's
+  cache or display a stale simulation), recovers from worker errors via the main-thread
+  fallback, and cancels an in-flight run on preset switch
+- Ramp simulations size bets off a fresh shoe when the cut card is out, never let the sim
+  player double/split money it doesn't have, and record a dead bankroll's true residue
+
+### Accessibility
+- Face-down cards no longer carry their identity in the DOM (the hole card was readable by
+  find-in-page/screen readers before the reveal); cards expose natural accessible names
+- Single-key table shortcuts can be turned off (WCAG 2.1.4) via a persisted "Keys" toggle
+- Toggle/selection state exposed via aria-pressed across presets, bots, bet targets, and
+  table toggles; ChipStack is a named image; the active split hand announces itself
+- Muted informative text raised to the family contrast floor; the felt rule line passes AA
+- New axe (WCAG 2.1 A/AA) Playwright scans over every user route
+
+### Added (delivery infrastructure)
+- GitHub Actions CI: lint, typecheck, unit/nuxt suites, production build, and the full
+  Playwright suite with report artifacts
+- Netlify deploys are gated on the test suites; Node `engines` field; coverage scoped to the
+  TS logic layers with a ≥90% floor on the engine
+- New e2e specs: double, late surrender, casino-paced round, Bet Lab worker simulation
+  (the only place the real worker protocol runs), and the axe scans — 15 e2e tests total
+
+### Changed
+- One shared money formatter (`formatCents`/`signedCents`) replaces seven local variants;
+  drill scoring runs through a shared `useDrillStreak` composable and score header;
+  learn/study numbers (H17/6:5/DAS deltas, dealer bust rate, 16vT costs) are computed from
+  the engine instead of transcribed; footer version reads from package.json; bottom
+  navigation uses real links
+- Bet Lab decomposed: the percentile fan chart (`FanChart`) and the closed-form stats panel
+  (`RampStatsPanel`) are standalone components; the learn page's prose moved to a content
+  module (`utils/learnContent`) parameterized by engine facts — the page is structure, the
+  copy is data
+
 ## [0.4.0] — 2026-06-12
 
 ### Added (0.4.0 — counting trainer, Bet Lab, presentation polish)

@@ -7,7 +7,7 @@ const { endSession } = useGameLoop()
 const isSetup = computed(() => route.path === '/')
 const onTable = computed(() => route.path === '/table')
 const showLeaveConfirm = ref(false)
-const version = '0.4.0'
+const version = useRuntimeConfig().public.version
 
 const NAV = [
   { to: '/history', label: 'History', icon: 'i-lucide-scroll-text' },
@@ -71,7 +71,10 @@ function subPageBack() {
         class="flex items-center gap-2 text-xs text-neutral-400"
       >
         <span>Bankroll</span>
-        <span class="font-mono font-semibold text-[var(--accent-cream)]">${{ (store.bankroll / 100).toLocaleString() }}</span>
+        <span
+          class="font-mono font-semibold text-[var(--accent-cream)]"
+          data-testid="nav-bankroll"
+        >{{ formatCents(store.bankroll) }}</span>
       </div>
     </nav>
 
@@ -81,22 +84,22 @@ function subPageBack() {
 
     <nav class="z-50 flex h-9 shrink-0 items-center justify-between border-t border-neutral-800 bg-neutral-900 px-3">
       <div class="flex items-center gap-3">
-        <button
+        <!-- real links: middle-click, copy-address, and history semantics come for free -->
+        <NuxtLink
           v-for="link in NAV"
           :key="link.to"
+          :to="link.to"
           class="flex items-center gap-1.5 text-xs transition-colors"
-          :class="route.path === link.to ? 'text-amber-400' : 'text-neutral-400 hover:text-neutral-200'"
-          :aria-current="route.path === link.to ? 'page' : undefined"
+          :class="route.path === link.to ? 'text-[var(--accent-gold)]' : 'text-neutral-400 hover:text-neutral-200'"
           :aria-label="link.label"
           :data-testid="`nav-${link.label.toLowerCase().replace(/\s+/g, '-')}`"
-          @click="navigateTo(link.to)"
         >
           <UIcon
             :name="link.icon"
             class="h-3.5 w-3.5"
           />
           <span class="hidden sm:inline">{{ link.label }}</span>
-        </button>
+        </NuxtLink>
       </div>
       <div class="flex items-center gap-3">
         <span class="text-[10px] text-neutral-400">v{{ version }} — training simulator; no real-money play</span>

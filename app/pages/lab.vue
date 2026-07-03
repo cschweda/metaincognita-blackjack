@@ -4,6 +4,7 @@ import { DEFAULT_RAMP, rampStats, simulateTrajectories, tcFrequencies } from '~/
 import { houseEdge } from '~/utils/engine/basicStrategy'
 import { PRESETS } from '~/utils/engine/rules'
 import { randomSeed } from '~/utils/engine/rng'
+import { formatCents } from '~/utils/format'
 
 const store = useBlackjackStore()
 onMounted(() => {
@@ -69,29 +70,52 @@ const freqs = ref<TcFrequencies | null>(null)
 const measuring = ref(false)
 
 let worker: Worker | null = null
+let workerBroken = false
 let pendingFreqKey: string | null = null
+/** Monotonic run id — a result carrying a stale id belongs to abandoned rules; drop it. */
+let simRunId = 0
 
 function handleWorkerMessage(e: MessageEvent): void {
   const msg = e.data
-  if (msg.type === 'freqs' && pendingFreqKey) {
-    freqCache.set(pendingFreqKey, msg.freqs)
-    freqs.value = msg.freqs
-    pendingFreqKey = null
-    measuring.value = false
+  if (msg.type === 'freqs' && typeof msg.key === 'string') {
+    // the reply names its own preset — a slow answer can never poison another key's cache
+    freqCache.set(msg.key, msg.freqs)
+    if (msg.key === presetKey.value) {
+      freqs.value = msg.freqs
+      measuring.value = false
+    }
+    if (pendingFreqKey === msg.key) pendingFreqKey = null
   } else if (msg.type === 'progress') {
-    simProgress.value = msg.fraction
+    if (msg.id === simRunId) simProgress.value = msg.fraction
   } else if (msg.type === 'result') {
+    if (msg.id !== simRunId) return // finished under rules we've since left
     simResult.value = msg.result
     simulating.value = false
   }
 }
 
+function handleWorkerError(): void {
+  worker?.terminate()
+  worker = null
+  workerBroken = true // don't rebuild a worker whose module can't load
+  // finish whatever was in flight on the main thread
+  if (measuring.value) {
+    pendingFreqKey = null
+    requestFreqs()
+  }
+  if (simulating.value) {
+    simResult.value = simulateTrajectories(simParams())
+    simulating.value = false
+  }
+}
+
 function ensureWorker(): Worker | null {
-  if (typeof Worker === 'undefined') return null
+  if (typeof Worker === 'undefined' || workerBroken) return null
   if (!worker) {
     try {
       worker = new Worker(new URL('../workers/ruin-sim.ts', import.meta.url), { type: 'module' })
       worker.onmessage = handleWorkerMessage
+      worker.onerror = handleWorkerError
     } catch {
       worker = null
     }
@@ -104,14 +128,16 @@ function requestFreqs(): void {
   const cached = freqCache.get(key)
   if (cached) {
     freqs.value = cached
+    measuring.value = false
     return
   }
+  if (measuring.value && pendingFreqKey === key) return // already on its way
   freqs.value = null
   measuring.value = true
   const w = ensureWorker()
   if (w) {
     pendingFreqKey = key
-    w.postMessage({ type: 'freqs', rules: rules.value, rounds: FREQ_ROUNDS, seed: FREQ_SEED })
+    w.postMessage({ type: 'freqs', key, rules: rules.value, rounds: FREQ_ROUNDS, seed: FREQ_SEED })
   } else {
     // no Worker (tests, exotic browsers): compute on the main thread
     const measured = tcFrequencies(rules.value, FREQ_ROUNDS, FREQ_SEED)
@@ -122,31 +148,16 @@ function requestFreqs(): void {
 }
 
 watch(presetKey, () => {
+  if (simulating.value) cancelSim() // its rules no longer apply — stop burning the cores
   simResult.value = null // a simulation is only meaningful for the rules it ran under
   requestFreqs()
 })
 
-// ── instant math (closed form, recomputed on every edit) ──────────────────────
+// ── instant math (closed form, recomputed on every edit; rendered by RampStatsPanel) ──
 
 const stats = computed(() => {
   if (!freqs.value) return null
   return rampStats(ramp, freqs.value, houseEdge(rules.value), rules.value)
-})
-
-function plainDollars(cents: number, dp = 0): string {
-  return `$${(Math.abs(cents) / 100).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp })}`
-}
-function signedDollars(cents: number, dp = 2): string {
-  const sign = cents > 0 ? '+' : cents < 0 ? '−' : ''
-  return `${sign}${plainDollars(cents, dp)}`
-}
-
-const n0Text = computed(() => {
-  if (!stats.value) return ''
-  if (!Number.isFinite(stats.value.n0Rounds)) return '∞ — this ramp never outruns its variance'
-  const rounds = Math.round(stats.value.n0Rounds)
-  const hours = rounds / ramp.roundsPerHour
-  return `${rounds.toLocaleString()} rounds (≈${hours.toLocaleString(undefined, { maximumFractionDigits: 0 })}h)`
 })
 
 // ── real simulation (worker-driven, cancellable) ──────────────────────────────
@@ -174,7 +185,8 @@ function simulate(): void {
   simulating.value = true
   const w = ensureWorker()
   if (w) {
-    w.postMessage({ type: 'simulate', params: simParams() })
+    simRunId++
+    w.postMessage({ type: 'simulate', id: simRunId, params: simParams() })
   } else {
     simResult.value = simulateTrajectories(simParams())
     simulating.value = false
@@ -183,42 +195,20 @@ function simulate(): void {
 
 function cancelSim(): void {
   // simulateTrajectories is one synchronous pass — cancellation IS termination
+  simRunId++ // anything the dying worker already posted is now stale
   worker?.terminate()
   worker = null
   simulating.value = false
   simProgress.value = 0
-  if (measuring.value) requestFreqs() // a freqs request may have died with the worker
+  if (measuring.value) {
+    pendingFreqKey = null
+    requestFreqs() // a freqs request may have died with the worker
+  }
 }
 
 onBeforeUnmount(() => {
   worker?.terminate()
   worker = null
-})
-
-// ── fan chart (inline SVG percentile bands) ───────────────────────────────────
-
-const W = 600
-const H = 170
-const PAD = 8
-
-const chart = computed(() => {
-  const r = simResult.value
-  if (!r || r.bands.length < 2) return null
-  const lo = Math.min(0, ...r.bands.map(b => b.p5))
-  const hi = Math.max(ramp.bankrollCents, ...r.bands.map(b => b.p95))
-  const x = (i: number) => PAD + (i / (r.bands.length - 1)) * (W - 2 * PAD)
-  const y = (v: number) => H - PAD - ((v - lo) / Math.max(1, hi - lo)) * (H - 2 * PAD)
-  const band = (loKey: 'p5' | 'p25', hiKey: 'p95' | 'p75') => [
-    ...r.bands.map((b, i) => `${x(i)},${y(b[hiKey])}`),
-    ...[...r.bands].reverse().map((b, i) => `${x(r.bands.length - 1 - i)},${y(b[loKey])}`)
-  ].join(' ')
-  return {
-    outer: band('p5', 'p95'),
-    inner: band('p25', 'p75'),
-    median: r.bands.map((b, i) => `${x(i)},${y(b.p50)}`).join(' '),
-    startY: y(ramp.bankrollCents),
-    zeroY: y(0)
-  }
 })
 </script>
 
@@ -287,7 +277,7 @@ const chart = computed(() => {
           />
         </UFormField>
       </div>
-      <p class="text-[10px] text-neutral-500">
+      <p class="text-[10px] text-neutral-400">
         Units bet at each true count. 1-2-4-6-8-12 is a classic shape: steep enough to matter,
         flat enough to survive scrutiny.
       </p>
@@ -313,87 +303,19 @@ const chart = computed(() => {
           </UButton>
         </div>
       </div>
-      <p class="text-[10px] text-neutral-500">
+      <p class="text-[10px] text-neutral-400">
         Saving stores the ramp with your lifetime training data. With coaching on (and counting
         active at the table), the advisor adds one bet-size line between rounds — never in exam mode.
       </p>
     </section>
 
     <!-- instant math -->
-    <section class="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-400">
-        Instant math
-      </h2>
-      <p
-        v-if="measuring"
-        class="text-xs text-neutral-400"
-        data-testid="lab-measuring"
-      >
-        Measuring this table's true-count distribution ({{ FREQ_ROUNDS.toLocaleString() }} engine rounds)…
-      </p>
-      <div
-        v-else-if="stats"
-        class="grid grid-cols-2 gap-3 sm:grid-cols-3"
-      >
-        <div>
-          <p class="text-xs uppercase tracking-wide text-neutral-400">
-            EV / round
-          </p>
-          <p
-            class="font-mono text-lg font-bold"
-            :class="stats.evPerRoundCents > 0 ? 'text-emerald-400' : 'text-red-400'"
-            data-testid="lab-ev-round"
-          >
-            {{ signedDollars(stats.evPerRoundCents) }}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs uppercase tracking-wide text-neutral-400">
-            EV / hour
-          </p>
-          <p
-            class="font-mono text-lg font-bold"
-            :class="stats.evHourlyCents > 0 ? 'text-emerald-400' : 'text-red-400'"
-            data-testid="lab-ev-hour"
-          >
-            {{ signedDollars(stats.evHourlyCents) }}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs uppercase tracking-wide text-neutral-400">
-            SD / hour
-          </p>
-          <p class="font-mono text-lg font-bold text-[var(--accent-cream)]">
-            ±{{ plainDollars(stats.sdHourlyCents) }}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs uppercase tracking-wide text-neutral-400">
-            Risk of ruin
-          </p>
-          <p
-            class="font-mono text-lg font-bold"
-            :class="stats.ruin > 0.1 ? 'text-red-400' : 'text-[var(--accent-gold)]'"
-            data-testid="lab-ruin"
-          >
-            {{ (stats.ruin * 100).toFixed(1) }}%
-          </p>
-        </div>
-        <div class="col-span-2">
-          <p class="text-xs uppercase tracking-wide text-neutral-400">
-            N₀ — rounds until edge outruns variance
-          </p>
-          <p class="font-mono text-sm font-semibold text-[var(--accent-cream)]">
-            {{ n0Text }}
-          </p>
-        </div>
-      </div>
-      <p class="text-[10px] text-neutral-500">
-        Model, not measurement: edge(TC) ≈ −house edge + 0.5% × TC, per-round variance ≈ 1.33 × bet².
-        TC frequencies are measured by auto-playing this table at basic strategy. Ruin is the
-        classic unit-normalized closed form — the simulator below is the reality check.
-      </p>
-    </section>
+    <RampStatsPanel
+      :stats="stats"
+      :measuring="measuring"
+      :freq-rounds="FREQ_ROUNDS"
+      :rounds-per-hour="ramp.roundsPerHour"
+    />
 
     <!-- real simulation -->
     <section class="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
@@ -472,55 +394,16 @@ const chart = computed(() => {
               Mean final bankroll
             </p>
             <p class="font-mono text-lg font-bold text-[var(--accent-cream)]">
-              {{ plainDollars(simResult.meanFinalCents) }}
+              {{ formatCents(simResult.meanFinalCents, 0) }}
             </p>
           </div>
         </div>
 
-        <svg
-          :viewBox="`0 0 ${W} ${H}`"
-          class="w-full rounded border border-neutral-800 bg-neutral-950"
-          role="img"
-          aria-label="Bankroll percentile fan chart across simulated lifetimes"
-        >
-          <polygon
-            v-if="chart"
-            :points="chart.outer"
-            fill="rgb(212 168 71 / 0.10)"
-          />
-          <polygon
-            v-if="chart"
-            :points="chart.inner"
-            fill="rgb(212 168 71 / 0.22)"
-          />
-          <polyline
-            v-if="chart"
-            :points="chart.median"
-            fill="none"
-            stroke="#d4a847"
-            stroke-width="2"
-          />
-          <line
-            v-if="chart"
-            :x1="PAD"
-            :x2="W - PAD"
-            :y1="chart.startY"
-            :y2="chart.startY"
-            stroke="#737373"
-            stroke-dasharray="4 4"
-            stroke-width="1"
-          />
-          <line
-            v-if="chart"
-            :x1="PAD"
-            :x2="W - PAD"
-            :y1="chart.zeroY"
-            :y2="chart.zeroY"
-            stroke="#7f1d1d"
-            stroke-width="1"
-          />
-        </svg>
-        <p class="text-[10px] text-neutral-500">
+        <FanChart
+          :bands="simResult.bands"
+          :start-cents="ramp.bankrollCents"
+        />
+        <p class="text-[10px] text-neutral-400">
           {{ simTrajectories }} lifetimes × {{ simRounds }} rounds through the real engine — seeded
           shoes, basic strategy, live Hi-Lo count, your ramp. Gold line: median bankroll. Bands:
           25–75th and 5–95th percentiles. Dashed: starting bankroll. Red: broke. If the closed

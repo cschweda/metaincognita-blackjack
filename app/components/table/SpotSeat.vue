@@ -40,6 +40,10 @@ function totalLabel(cards: { rank: number, suit: string }[]): string {
         class="flex flex-col items-center gap-1 rounded-lg p-1.5"
         :class="isActive && hi === spot.activeHandIndex && hand.outcome === null ? 'ring-2 ring-[var(--accent-gold)]' : ''"
       >
+        <span
+          v-if="isActive && hi === spot.activeHandIndex && hand.outcome === null"
+          class="sr-only"
+        >Active hand</span>
         <div class="flex">
           <PlayingCard
             v-for="(card, ci) in hand.cards"

@@ -70,10 +70,10 @@ describe('legalActions — double restrictions', () => {
 })
 
 describe('legalActions — splitting limits', () => {
-  it('caps splits at maxSplitHands (MA §11(e): 4; WA: 3)', () => {
+  it('caps splits at maxSplitHands (MA §11(e): 3 at a seven-box table; WA: 3)', () => {
     const pair = newHand([c(8, 'hearts'), c(8, 'clubs')], 1000, { fromSplit: true })
-    expect(legalActions(pair, 3, MA)).toContain('split') // 3 hands → can make 4th
-    expect(legalActions(pair, 4, MA)).not.toContain('split')
+    expect(legalActions(pair, 2, MA)).toContain('split') // 2 hands → can make a 3rd
+    expect(legalActions(pair, 3, MA)).not.toContain('split')
     expect(legalActions(pair, 3, PRESETS.WA_CARDROOM!)).not.toContain('split')
   })
 
@@ -82,11 +82,11 @@ describe('legalActions — splitting limits', () => {
     expect(legalActions(h, 2, MA)).toEqual([])
   })
 
-  it('resplit aces only when resplitAces is on', () => {
+  it('resplit aces only when resplitAces is on — and resplitting is optional, never forced', () => {
     const aces = newHand([c(14, 'hearts'), c(14, 'clubs')], 1000, { fromSplit: true, splitAces: true })
     expect(legalActions(aces, 2, MA)).toEqual([]) // MA preset prohibits
     const r = cloneRules(MA)
     r.resplitAces = true
-    expect(legalActions(aces, 2, r)).toEqual(['split'])
+    expect(legalActions(aces, 2, r)).toEqual(['split', 'stand'])
   })
 })

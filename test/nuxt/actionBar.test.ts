@@ -104,6 +104,47 @@ describe('ActionBar — actions & insurance', () => {
   })
 })
 
+describe('ActionBar — insurance amount & input guards', () => {
+  it('derives the insurance amount from the live hand bet, not the remembered bet', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'insurance', heroBet: 10_000, lastBet: null }
+    })
+    expect(w.find('[data-testid="take-insurance"]').text()).toContain('Insure $50')
+  })
+
+  it('disables the insurance buy when the bankroll cannot cover it', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'insurance', heroBet: 10_000, bankroll: 10_000, inPlay: 10_000 }
+    })
+    expect(w.find('[data-testid="take-insurance"]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-testid="decline-insurance"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('freezes all insurance buttons while the table is presenting', async () => {
+    const w = await mountSuspended(ActionBar, {
+      props: { ...base, phase: 'insurance', heroBet: 1000, insuranceEnabled: false }
+    })
+    expect(w.find('[data-testid="decline-insurance"]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-testid="take-insurance"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('exposes the active bet target with aria-pressed', async () => {
+    const w = await mountSuspended(ActionBar, { props: { ...base, phase: 'betting' } })
+    expect(w.find('[data-testid="target-main"]').attributes('aria-pressed')).toBe('true')
+    await w.find('[data-testid="target-buster"]').trigger('click')
+    expect(w.find('[data-testid="target-buster"]').attributes('aria-pressed')).toBe('true')
+    expect(w.find('[data-testid="target-main"]').attributes('aria-pressed')).toBe('false')
+  })
+
+  it('a double-click on Deal emits exactly one deal', async () => {
+    const w = await mountSuspended(ActionBar, { props: { ...base, phase: 'betting' } })
+    await w.find('[data-testid="chip-2500"]').trigger('click')
+    await w.find('[data-testid="deal"]').trigger('click')
+    await w.find('[data-testid="deal"]').trigger('click')
+    expect(w.emitted('deal')).toHaveLength(1)
+  })
+})
+
 describe('ActionBar — EV hints', () => {
   it('renders sr-only EV hints when evs are provided', async () => {
     const w = await mountSuspended(ActionBar, {

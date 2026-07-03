@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_RAMP, bucketForTc, betForTc, tcFrequencies, rampStats, simulateTrajectories
+  DEFAULT_RAMP, bucketForTc, betForTc, bettingTc, tcFrequencies, rampStats, simulateTrajectories
 } from '../../app/utils/betRamp'
 import type { BetRamp, TcFrequencies } from '../../app/utils/betRamp'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
+import { Shoe } from '../../app/utils/engine/shoe'
+import { CountTracker } from '../../app/utils/engine/counting'
+import { mulberry32 } from '../../app/utils/engine/rng'
 
 const RULES = (() => {
   const r = cloneRules(PRESETS.VEGAS_STRIP_6D!)
@@ -132,5 +135,57 @@ describe('simulateTrajectories', () => {
     expect(ticks[ticks.length - 1]).toBe(1)
     expect(result.ruinRate).toBe(0) // $20k bankroll cannot bust in 60 rounds of ≤$300 bets
     expect(result.meanFinalCents).toBeGreaterThan(1_500_000)
+  })
+})
+
+describe('betting-count integrity and bankroll realism', () => {
+  it('bettingTc reads a fresh shoe when the cut card is out — never the dead count', () => {
+    const shoe = new Shoe(1, 0.5, mulberry32(9))
+    const tracker = new CountTracker()
+    // rich observed count, then burn past the cut card
+    for (let i = 0; i < 30; i++) tracker.observe(shoe.draw())
+    expect(shoe.needsShuffle()).toBe(true)
+    // whatever the dead shoe's count says, the wager is sized for the post-shuffle shoe
+    expect(bettingTc(shoe, tracker, RULES)).toBe(0)
+    const fresh = new Shoe(1, 0.5, mulberry32(9))
+    const t2 = new CountTracker()
+    t2.observe({ rank: 5, suit: 'spades' })
+    expect(bettingTc(fresh, t2, RULES)).toBeGreaterThan(0)
+  })
+
+  it('records a dead bankroll\'s sub-minimum residue instead of clamping it to zero', () => {
+    // one $10-min round from a $15 bankroll: a plain loss leaves a $5 residue
+    const ramp: BetRamp = {
+      ...DEFAULT_RAMP, unitCents: 1000, bankrollCents: 1500, steps: [1, 1, 1, 1, 1, 1], wongOut: false
+    }
+    let found = false
+    for (let seed = 1; seed < 60 && !found; seed++) {
+      const r = simulateTrajectories({
+        rules: RULES, ramp, rounds: 1, trajectories: 1, seed, sampleEvery: 1
+      })
+      if (r.ruinRate === 1) {
+        found = true
+        expect(r.meanFinalCents).toBe(500)
+        expect(r.bands[1]!.p50).toBe(500)
+      }
+    }
+    expect(found).toBe(true)
+  })
+
+  it('the sim player cannot double or split money the bankroll does not have', () => {
+    // $15 bankroll, $10 bets: a double or split would need $10 more than exists —
+    // across many seeded single-round lifetimes the bankroll must never go negative
+    const ramp: BetRamp = {
+      ...DEFAULT_RAMP, unitCents: 1000, bankrollCents: 1500, steps: [1, 1, 1, 1, 1, 1], wongOut: false
+    }
+    for (let seed = 1; seed <= 80; seed++) {
+      const r = simulateTrajectories({
+        rules: RULES, ramp, rounds: 1, trajectories: 1, seed, sampleEvery: 1
+      })
+      for (const band of r.bands) {
+        expect(band.p50, `seed ${seed}`).toBeGreaterThanOrEqual(0)
+      }
+      expect(r.meanFinalCents, `seed ${seed}`).toBeGreaterThanOrEqual(0)
+    }
   })
 })

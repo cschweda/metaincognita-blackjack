@@ -4,6 +4,7 @@ import {
   heroPnlCents, sideBetLedger, topMistakes
 } from '~/utils/analysis'
 import { PERSONAS } from '~/utils/engine/bots'
+import { signedCents } from '~/utils/format'
 
 const store = useBlackjackStore()
 onMounted(() => {
@@ -38,8 +39,7 @@ const sparkPoints = computed(() => {
 })
 
 function money(cents: number): string {
-  const sign = cents > 0 ? '+' : cents < 0 ? '−' : ''
-  return `${sign}$${(Math.abs(cents) / 100).toLocaleString()}`
+  return signedCents(cents, { zeroSign: '' })
 }
 </script>
 

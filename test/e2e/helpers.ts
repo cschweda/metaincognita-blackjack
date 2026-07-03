@@ -5,11 +5,16 @@ export interface SessionOpts {
   seed?: number
   quick?: boolean
   bots?: string[]
+  /** Preset key (e.g. 'MA_205CMR') — defaults to the pre-selected Vegas Strip. */
+  preset?: string
 }
 
 /** Drives the real setup screen: preset stays Vegas, optional quick mode, optional bots, then deals nothing. */
 export async function newSession(page: Page, goto: (url: string, opts: { waitUntil: 'hydration' }) => Promise<unknown>, opts: SessionOpts = {}): Promise<void> {
   await goto(opts.seed ? `/?seed=${opts.seed}` : '/', { waitUntil: 'hydration' })
+  if (opts.preset) {
+    await page.getByTestId(`preset-${opts.preset}`).click()
+  }
   for (const bot of opts.bots ?? []) {
     await page.getByTestId(`bot-${bot}`).click()
   }
@@ -29,8 +34,14 @@ export async function betAndDeal(page: Page, chips: number[] = [2500]): Promise<
 }
 
 export async function declineInsuranceIfOffered(page: Page): Promise<void> {
+  // settle the post-deal state first — exactly one of these appears, so a slow machine
+  // can never race past the insurance prompt into the wrong state
+  const anyState = page.getByTestId('decline-insurance')
+    .or(page.getByTestId('act-hit'))
+    .or(page.getByTestId('deal'))
+  await anyState.first().waitFor({ state: 'visible' })
   const decline = page.getByTestId('decline-insurance')
-  if (await decline.isVisible().catch(() => false)) {
+  if (await decline.isVisible()) {
     await decline.click()
   }
 }
@@ -41,5 +52,6 @@ export async function standUntilComplete(page: Page): Promise<void> {
     if (!(await stand.isVisible().catch(() => false)) || !(await stand.isEnabled().catch(() => false))) break
     await stand.click()
   }
-  await expect(page.getByTestId('deal')).toBeVisible() // back to betting controls = round settled
+  // paced (casino) presentations take several seconds to settle — wait generously
+  await expect(page.getByTestId('deal')).toBeVisible({ timeout: 30_000 })
 }

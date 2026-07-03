@@ -72,6 +72,8 @@ export interface TrainingStats {
   betRamp: BetRamp | null
   /** Opt-in: coach suggests ramp bet sizes at the table. */
   betHintsEnabled: boolean
+  /** WCAG 2.1.4: single-character table shortcuts (H/S/D/P/R, B, C, Space) can be turned off. */
+  keyboardShortcuts: boolean
 }
 
 export interface RoundRecord {
@@ -104,6 +106,14 @@ export interface SessionStats {
   startedAt: number
 }
 
+/** The in-flight round's presentation trail — persisted beside the snapshot so a mid-round
+ *  refresh keeps the full visible-card and decision history for the eventual RoundRecord. */
+export interface RoundTrail {
+  visible: string[]
+  decisions: DecisionRecord[]
+  insurance: InsuranceRecord | null
+}
+
 function freshStats(): SessionStats {
   return {
     roundsPlayed: 0, handsWon: 0, handsLost: 0, handsPushed: 0, blackjacks: 0,
@@ -125,9 +135,13 @@ function freshTraining(): TrainingStats {
     drillBests: {},
     drillTimes: {},
     betRamp: null,
-    betHintsEnabled: false
+    betHintsEnabled: false,
+    keyboardShortcuts: true
   }
 }
+
+// One window listener regardless of how many pinia instances tests create.
+let crossTabListener: ((e: StorageEvent) => void) | null = null
 
 export const useBlackjackStore = defineStore('blackjack', () => {
   const settings = ref<SessionSettings | null>(null)
@@ -136,10 +150,21 @@ export const useBlackjackStore = defineStore('blackjack', () => {
   const history = ref<RoundRecord[]>([])
   const botStates = ref<Partial<Record<PersonaId, { bet: number, last: 'win' | 'lose' | 'push' | null }>>>({})
   const roundSnapshot = ref<GameSnapshot | null>(null)
+  const roundTrail = ref<RoundTrail | null>(null)
   const sessionActive = ref(false)
   const storageAvailable = ref(true)
+  /** Another tab wrote this session's key — last write wins, warn before acting here. */
+  const crossTabConflict = ref(false)
   const countState = ref<{ running: number, cardsSeen: number } | null>(null)
   const training = ref<TrainingStats>(loadTraining())
+
+  if (typeof window !== 'undefined') {
+    if (crossTabListener) window.removeEventListener('storage', crossTabListener)
+    crossTabListener = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && sessionActive.value) crossTabConflict.value = true
+    }
+    window.addEventListener('storage', crossTabListener)
+  }
 
   const busted = computed(() =>
     sessionActive.value && settings.value !== null && bankroll.value < settings.value.rules.minBet)
@@ -166,7 +191,8 @@ export const useBlackjackStore = defineStore('blackjack', () => {
         betRamp: typeof data.betRamp === 'object' && data.betRamp !== null && !Array.isArray(data.betRamp)
           ? data.betRamp as BetRamp
           : null,
-        betHintsEnabled: data.betHintsEnabled === true
+        betHintsEnabled: data.betHintsEnabled === true,
+        keyboardShortcuts: data.keyboardShortcuts !== false
       }
     } catch {
       return freshTraining()
@@ -233,8 +259,26 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     persistTraining()
   }
 
+  function setKeyboardShortcuts(enabled: boolean): void {
+    training.value.keyboardShortcuts = enabled
+    persistTraining()
+  }
+
   function setCountState(s: { running: number, cardsSeen: number } | null): void {
     countState.value = s
+  }
+
+  /** Kept beside the snapshot; persisted by the next saveSnapshot/persist call. */
+  function setRoundTrail(trail: RoundTrail | null): void {
+    roundTrail.value = trail
+  }
+
+  /** Bot bet progression — state only moves through actions (applyNet contract). */
+  function advanceBotState(id: PersonaId, last: 'win' | 'lose' | 'push', bet: number): void {
+    const state = botStates.value[id]
+    if (!state) return
+    state.last = last
+    state.bet = bet
   }
 
   function initSession(s: SessionSettings, startingBankroll: number): void {
@@ -290,6 +334,7 @@ export const useBlackjackStore = defineStore('blackjack', () => {
         history: history.value,
         botStates: botStates.value,
         roundSnapshot: roundSnapshot.value,
+        roundTrail: roundTrail.value,
         sessionActive: sessionActive.value,
         countState: countState.value,
         meta: { updatedAt: Date.now() }
@@ -324,10 +369,15 @@ export const useBlackjackStore = defineStore('blackjack', () => {
       history.value = (data.history as RoundRecord[]).slice(-HISTORY_CAP)
       botStates.value = (data.botStates ?? {}) as typeof botStates.value
       roundSnapshot.value = (data.roundSnapshot ?? null) as GameSnapshot | null
+      roundTrail.value = (data.roundTrail ?? null) as RoundTrail | null
       countState.value = (data.countState ?? null) as typeof countState.value
       sessionActive.value = data.sessionActive === true && settings.value !== null
       return sessionActive.value
     } catch {
+      try {
+        // stash the raw payload so a future version bump can migrate instead of destroy
+        Storage.prototype.setItem.call(localStorage, `${STORAGE_KEY}.bak`, raw)
+      } catch { /* backup is best-effort */ }
       try {
         Storage.prototype.removeItem.call(localStorage, STORAGE_KEY)
       } catch { /* storage gone entirely */ }
@@ -342,7 +392,9 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     history.value = []
     botStates.value = {}
     roundSnapshot.value = null
+    roundTrail.value = null
     sessionActive.value = false
+    crossTabConflict.value = false
     countState.value = null
     try {
       Storage.prototype.removeItem.call(localStorage, STORAGE_KEY)
@@ -351,11 +403,12 @@ export const useBlackjackStore = defineStore('blackjack', () => {
   }
 
   return {
-    settings, bankroll, session, history, botStates, roundSnapshot,
-    sessionActive, storageAvailable, busted,
+    settings, bankroll, session, history, botStates, roundSnapshot, roundTrail,
+    sessionActive, storageAvailable, crossTabConflict, busted,
     training, countState,
     initSession, applyNet, recordRound, saveSnapshot, persist, restore, clearAll,
-    setCountState, recordDecision, recordInsuranceDecision, recordCountCheck, recordDrillBest,
-    recordDrillTime, setBetRamp
+    setCountState, setRoundTrail, advanceBotState,
+    recordDecision, recordInsuranceDecision, recordCountCheck, recordDrillBest,
+    recordDrillTime, setBetRamp, setKeyboardShortcuts
   }
 })

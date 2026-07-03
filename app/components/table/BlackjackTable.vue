@@ -79,7 +79,7 @@ const dealerRule = computed(() => props.rules.dealerHitsSoft17 ? 'DEALER HITS SO
         x="500"
         y="105"
         fill="var(--accent-cream)"
-        fill-opacity="0.55"
+        fill-opacity="0.75"
         font-size="14"
         letter-spacing="3"
         text-anchor="middle"

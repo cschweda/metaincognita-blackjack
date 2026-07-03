@@ -4,7 +4,7 @@ import type { Action } from '~/utils/engine/hand'
 import type { RuleSet } from '~/utils/engine/rules'
 import type { SideBetKind } from '~/utils/engine/round'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   phase: 'betting' | 'insurance' | 'playerTurns' | 'complete'
   rules: RuleSet
   legalActions: Action[]
@@ -12,10 +12,16 @@ const props = defineProps<{
   canDeal: boolean
   heroHasBlackjack: boolean
   lastBet: { main: number, side: Partial<Record<SideBetKind, number>> } | null
+  /** The live hand's main bet from the engine — survives refresh, unlike lastBet. */
+  heroBet?: number | null
+  /** Cents committed but not yet settled — caps what insurance may still spend. */
+  inPlay?: number
+  /** False while the table is presenting — freezes the insurance buttons. */
+  insuranceEnabled?: boolean
   /** Per-action EVs — coach mode only; renders a tooltip + sr-only hint per button. */
   evs?: Partial<Record<Action, number>>
   insuranceAdvice?: string
-}>()
+}>(), { heroBet: null, inPlay: 0, insuranceEnabled: true, evs: undefined, insuranceAdvice: undefined })
 
 const emit = defineEmits<{
   deal: [main: number, side: Partial<Record<SideBetKind, number>>]
@@ -75,15 +81,26 @@ function rebet(): void {
   sideStakes.value = side
 }
 
+/** A double-click's second click must not start a second round. */
+const dealCooldown = ref(false)
+
 const dealDisabled = computed(() =>
-  !props.canDeal || mainBet.value < props.rules.minBet || committed.value > props.bankroll)
+  !props.canDeal || dealCooldown.value || mainBet.value < props.rules.minBet || committed.value > props.bankroll)
 
 function deal(): void {
   if (dealDisabled.value) return
+  dealCooldown.value = true
+  setTimeout(() => {
+    dealCooldown.value = false
+  }, 350)
   emit('deal', mainBet.value, { ...sideStakes.value })
 }
 
-const insuranceAmount = computed(() => Math.floor((props.lastBet?.main ?? props.rules.minBet) / 2))
+const insuranceAmount = computed(() =>
+  Math.floor((props.heroBet ?? props.lastBet?.main ?? props.rules.minBet) / 2))
+const insuranceOn = computed(() => props.insuranceEnabled)
+const insuranceUnaffordable = computed(() =>
+  insuranceAmount.value > props.bankroll - (props.inPlay ?? 0))
 
 const ACTION_META: Record<Action, { label: string, key: string }> = {
   hit: { label: 'Hit', key: 'H' },
@@ -143,6 +160,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           color="primary"
           data-testid="target-main"
           aria-label="Bet target: main bet"
+          :aria-pressed="target === 'main'"
           @click="target = 'main'"
         >
           Main {{ mainBet > 0 ? `$${mainBet / 100}` : '' }}
@@ -155,6 +173,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
           color="neutral"
           :data-testid="`target-${sb.kind}`"
           :aria-label="`Bet target: ${sb.label}`"
+          :aria-pressed="target === sb.kind"
           @click="target = sb.kind"
         >
           {{ sb.label }} {{ (sideStakes[sb.kind] ?? 0) > 0 ? `$${(sideStakes[sb.kind] ?? 0) / 100}` : '' }}
@@ -193,6 +212,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
         <UButton
           v-if="heroHasBlackjack && rules.evenMoneyOffered"
           color="primary"
+          :disabled="!insuranceOn"
           data-testid="even-money"
           @click="emit('insurance', 'even-money')"
         >
@@ -201,6 +221,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
         <UButton
           color="neutral"
           variant="soft"
+          :disabled="!insuranceOn || insuranceUnaffordable"
           data-testid="take-insurance"
           @click="emit('insurance', insuranceAmount)"
         >
@@ -209,6 +230,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
         <UButton
           color="neutral"
           variant="outline"
+          :disabled="!insuranceOn"
           data-testid="decline-insurance"
           @click="emit('insurance', null)"
         >

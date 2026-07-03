@@ -22,6 +22,8 @@ const lastBet = ref<{ main: number, side: Partial<Record<SideBetKind, number>> }
 
 const rules = computed(() => store.settings?.rules)
 const heroView = computed(() => spotsView.value.find(s => s.occupant === 'hero') ?? null)
+/** One lookup per render, not two finds per seat. */
+const spotBySeat = computed(() => new Map(spotsView.value.map(s => [s.spotId, s])))
 
 const counting = useCounting()
 
@@ -88,7 +90,8 @@ function onDeal(main: number, side: Partial<Record<SideBetKind, number>>): void 
 }
 
 function onAct(action: Action): void {
-  loop.act(action)
+  if (!canAct.value) return // a click that raced the round's end — nothing to act on
+  loop.act(action, heroTurn.value?.handIndex)
 }
 
 function onInsurance(decision: number | 'even-money' | null): void {
@@ -121,6 +124,7 @@ const studyMode = ref(false)
 const actionBar = ref<{ rebet: () => void, deal: () => void } | null>(null)
 const KEYS: Record<string, Action> = { h: 'hit', s: 'stand', d: 'double', p: 'split', r: 'surrender' }
 function onKey(e: KeyboardEvent): void {
+  if (!store.training.keyboardShortcuts) return // WCAG 2.1.4: single-key shortcuts are optional
   if (studyMode.value) return
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
   const tag = (e.target as HTMLElement | null)?.tagName
@@ -153,6 +157,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       class="m-2"
       title="Storage unavailable — this session won't survive a refresh"
     />
+    <UAlert
+      v-if="store.crossTabConflict"
+      color="warning"
+      variant="soft"
+      class="m-2"
+      title="This session was changed in another tab"
+      description="Two tabs share one saved session and the last write wins — keep playing in one tab only."
+    />
 
     <!-- felt -->
     <BotChips :spots="spotsView" />
@@ -169,11 +181,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </template>
         <template #seat="{ spotId }">
           <div
-            v-if="spotsView.find(s => s.spotId === spotId)"
+            v-if="spotBySeat.get(spotId)"
             :class="spotId === heroSpotId ? '' : 'hidden md:block'"
           >
             <SpotSeat
-              :spot="spotsView.find(s => s.spotId === spotId)!"
+              :spot="spotBySeat.get(spotId)!"
               :is-hero="spotId === heroSpotId"
               :is-active="phase === 'playerTurns' && spotId === heroSpotId && canAct"
             />
@@ -219,9 +231,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <div class="flex items-center gap-2">
           <UButton
             size="xs"
+            :variant="store.training.keyboardShortcuts ? 'solid' : 'outline'"
+            color="neutral"
+            icon="i-lucide-keyboard"
+            :aria-pressed="store.training.keyboardShortcuts"
+            aria-label="Keyboard shortcuts (H/S/D/P/R, B, C, Space)"
+            title="Single-key table shortcuts — turn off if they conflict with assistive input"
+            data-testid="shortcuts-toggle"
+            @click="store.setKeyboardShortcuts(!store.training.keyboardShortcuts)"
+          >
+            Keys
+          </UButton>
+          <UButton
+            size="xs"
             :variant="studyMode ? 'solid' : 'outline'"
             color="neutral"
             icon="i-lucide-graduation-cap"
+            :aria-pressed="studyMode"
             data-testid="study-toggle"
             @click="studyMode = !studyMode"
           >
@@ -239,6 +265,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :can-deal="betweenRounds && queueIdle && !studyMode"
         :hero-has-blackjack="heroHasBlackjack"
         :last-bet="lastBet"
+        :hero-bet="heroView?.hands[0]?.bet ?? null"
+        :in-play="inPlay"
+        :insurance-enabled="queueIdle"
         :evs="advisorRec?.evs"
         :insurance-advice="insuranceAdvice"
         @deal="onDeal"

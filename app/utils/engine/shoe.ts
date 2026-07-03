@@ -15,6 +15,7 @@ export class Shoe {
   private burned: Card[] = []
   private cutIndex = 0
   private reached = false
+  private reshuffleCount = 0
 
   constructor(
     private readonly decks: number,
@@ -62,6 +63,13 @@ export class Shoe {
     this.cards = shuffle(this.rack.splice(0), this.rng)
     this.burnOne()
     this.reached = true // fresh shoe after this round regardless of cut position
+    this.reshuffleCount++
+  }
+
+  /** Lifetime mid-round reshuffles — the game diffs this across draws to announce the shuffle
+   *  (recycled discards re-enter play, so the running count must reset). */
+  midRoundReshuffles(): number {
+    return this.reshuffleCount
   }
 
   discard(cards: Card[]): void {

@@ -59,7 +59,7 @@ export const PRESETS: Readonly<Record<string, Readonly<RuleSet>>> = Object.freez
     blackjackPayout: '3:2',
     doubleOn: 'any2',
     doubleAfterSplit: true,
-    maxSplitHands: 4, // §11(e): up to three splits at ≤6-box tables
+    maxSplitHands: 3, // §11(e): four hands only at ≤6-box tables — this preset plays 7 boxes
     resplitAces: false, // §11(e): licensee may prohibit — default prohibited
     surrender: 'late', // §8
     dealerPeek: true, // §6(i) card reader device
@@ -91,7 +91,7 @@ export const PRESETS: Readonly<Record<string, Readonly<RuleSet>>> = Object.freez
     penetration: 0.75,
     minBet: 1500,
     maxBet: 100000,
-    sideBets: { twentyOnePlusThree: 'AC-XTREME', luckyLadies: 'MA-B', matchTheDealer: true, buster: 'off' }
+    sideBets: { twentyOnePlusThree: 'AC-XTREME', luckyLadies: 'MA-A', matchTheDealer: true, buster: 'off' } // guide: "up to 125 to 1" + 1000:1 bonus = Table A
   }),
   WA_CARDROOM: freeze({
     name: 'Washington card room',

@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
           size="md"
         />
       </button>
-      <p class="text-center text-xs text-neutral-500">
+      <p class="text-center text-xs text-neutral-400">
         Click or press Space for the next {{ mode.group === 2 ? 'pair' : 'card' }}
       </p>
     </div>

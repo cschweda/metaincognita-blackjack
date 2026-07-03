@@ -5,9 +5,12 @@ import { validateRuleSet } from '~/utils/engine/rules'
 import { houseEdge } from '~/utils/engine/basicStrategy'
 
 const rules = defineModel<RuleSet>({ required: true })
+/** Hosts that render their own edge readout (RuleExplorer) turn this off. */
+const props = withDefaults(defineProps<{ showEdge?: boolean }>(), { showEdge: true })
 
 const errors = computed(() => validateRuleSet(rules.value))
-const edge = computed(() => errors.value.length === 0 ? (houseEdge(rules.value) * 100).toFixed(2) : null)
+const edge = computed(() =>
+  props.showEdge && errors.value.length === 0 ? (houseEdge(rules.value) * 100).toFixed(2) : null)
 
 const deckOptions = [1, 2, 4, 6, 8].map(v => ({ label: `${v} deck${v > 1 ? 's' : ''}`, value: v }))
 const payoutOptions = [{ label: '3 to 2', value: '3:2' }, { label: '6 to 5', value: '6:5' }]

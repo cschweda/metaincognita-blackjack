@@ -90,6 +90,44 @@ describe('adviseHand', () => {
   })
 })
 
+describe('adviseHand — deviation scope vs surrender and pairs', () => {
+  it('never lets 16vT-stand override the split on 8,8', () => {
+    const rec = adviseHand(
+      { cards: [c(8), c(8, 'hearts')], fromSplit: false },
+      c(10, 'clubs'), VEGAS, 2, true, ['hit', 'stand', 'split']
+    )
+    expect(rec.deviation).toBeNull()
+    expect(rec.action).toBe('split')
+  })
+
+  it('keeps surrendering 16vT at modest positive counts when late surrender is legal', () => {
+    const rec = adviseHand(
+      { cards: [c(10), c(6, 'hearts')], fromSplit: false },
+      c(10, 'clubs'), MA, 1, true, ['hit', 'stand', 'double', 'surrender']
+    )
+    expect(rec.action).toBe('surrender')
+    expect(rec.deviation).toBeNull()
+  })
+
+  it('stands 16vT once the count clears the with-surrender composite index (+4)', () => {
+    const rec = adviseHand(
+      { cards: [c(10), c(6, 'hearts')], fromSplit: false },
+      c(10, 'clubs'), MA, 4, true, ['hit', 'stand', 'double', 'surrender']
+    )
+    expect(rec.action).toBe('stand')
+    expect(rec.deviation?.id).toBe('16vT-stand')
+  })
+
+  it('never stands 15vT while surrender is on the table — Fab-4 surrender stays the call', () => {
+    const rec = adviseHand(
+      { cards: [c(10), c(5, 'hearts')], fromSplit: false },
+      c(10, 'clubs'), MA, 5, true, ['hit', 'stand', 'double', 'surrender']
+    )
+    expect(rec.action).toBe('surrender')
+    expect(rec.deviation).toBeNull()
+  })
+})
+
 describe('adviseInsurance / cost / formatting', () => {
   it('declines insurance by the book, takes it at TC ≥ +3 in advanced mode', () => {
     expect(adviseInsurance(0, false).take).toBe(false)

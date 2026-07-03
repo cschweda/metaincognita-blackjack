@@ -1,5 +1,6 @@
 [build]
-  command = "pnpm generate"
+  # deploys are gated on the unit/nuxt suites — a red suite must never ship
+  command = "pnpm test && pnpm generate"
   publish = "dist"
 
 [build.environment]

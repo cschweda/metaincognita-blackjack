@@ -29,7 +29,7 @@ const current = ref<Card[]>([])
 const actual = ref(0)
 const entered = ref<number | null>(null)
 const correct = ref(false)
-const streak = ref(0)
+const { streak, best, grade } = useDrillStreak(() => `count-${level.value.id}`)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const reducedMotion = typeof window !== 'undefined'
@@ -73,12 +73,7 @@ function submit(): void {
   if (entered.value === null || Number.isNaN(entered.value)) return
   correct.value = entered.value === actual.value
   store.recordCountCheck(entered.value, actual.value)
-  if (correct.value) {
-    streak.value++
-    store.recordDrillBest(`count-${level.value.id}`, streak.value)
-  } else {
-    streak.value = 0
-  }
+  grade(correct.value)
   phase.value = 'result'
 }
 
@@ -94,7 +89,7 @@ onBeforeUnmount(stopTimer)
   <div class="space-y-3">
     <div class="flex items-center justify-between text-xs text-neutral-400">
       <span>Streak: <span class="font-mono font-bold text-[var(--accent-gold)]">{{ streak }}</span></span>
-      <span>Best ({{ level.label }}): <span class="font-mono">{{ store.training.drillBests[`count-${level.id}`] ?? 0 }}</span></span>
+      <span>Best ({{ level.label }}): <span class="font-mono">{{ best }}</span></span>
     </div>
 
     <div

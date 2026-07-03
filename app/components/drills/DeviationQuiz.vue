@@ -1,13 +1,35 @@
 <script setup lang="ts">
 import type { Deviation } from '~/utils/engine/counting'
-import { FAB_4, ILLUSTRIOUS_18 } from '~/utils/engine/counting'
+import { FAB_4, ILLUSTRIOUS_18, deviationActive, deviationThreshold } from '~/utils/engine/counting'
+import { bestAction, bestActionFull } from '~/utils/engine/basicStrategy'
+import { PRESETS } from '~/utils/engine/rules'
 
 const props = withDefaults(defineProps<{
   rng?: () => number
 }>(), { rng: () => Math.random() })
 
 const store = useBlackjackStore()
-const POOL: Deviation[] = [...ILLUSTRIOUS_18, ...FAB_4]
+const rules = computed(() => store.settings?.rules ?? PRESETS.VEGAS_STRIP_6D!)
+const surrenderLegal = computed(() => rules.value.surrender === 'late')
+
+/** The book side comes from the EV engine under the active rules — computed, not transcribed. */
+function bookPlayFor(dev: Deviation): string {
+  if (dev.id === 'insurance') return 'decline'
+  if (dev.pair !== null) {
+    return bestActionFull({ pair: dev.pair, total: dev.total, soft: dev.soft }, dev.up, rules.value).action
+  }
+  return bestAction({ total: dev.total, soft: dev.soft, twoCards: true, fromSplit: false }, dev.up, rules.value).action
+}
+
+/** Only quiz deviations that are real deviations under the active rules: the play must be
+ *  available (Fab 4 needs late surrender), reachable (a finite threshold), and different
+ *  from what the book already does (11vA-double is simply book under H17). */
+const pool = computed<Deviation[]>(() => [...ILLUSTRIOUS_18, ...FAB_4].filter((dev) => {
+  if (dev.id === 'insurance') return true
+  if (dev.play === 'surrender' && !surrenderLegal.value) return false
+  if (!Number.isFinite(deviationThreshold(dev, surrenderLegal.value).value)) return false
+  return bookPlayFor(dev) !== dev.play
+}))
 
 interface Question {
   dev: Deviation
@@ -26,31 +48,20 @@ function describeSituation(dev: Deviation): string {
   return `You hold ${dev.soft ? 'soft' : 'hard'} ${dev.total} vs dealer ${up}`
 }
 
-function bookPlayFor(dev: Deviation): string {
-  // the deviation's reverse side: what basic strategy does without the count
-  switch (dev.id) {
-    case 'insurance': return 'decline'
-    case 'fab-15vT-keep': return 'surrender'
-    default:
-      return dev.play === 'stand' ? 'hit' : dev.play === 'surrender' ? 'hit' : dev.play === 'split' ? 'stand' : 'hit'
-  }
-}
-
 function makeQuestion(): Question {
-  const dev = POOL[Math.floor(props.rng() * POOL.length)]!
-  const threshold = dev.minTrueCount ?? dev.maxTrueCount!
+  const dev = pool.value[Math.floor(props.rng() * pool.value.length)]!
+  const threshold = deviationThreshold(dev, surrenderLegal.value)
   const above = props.rng() < 0.5
   const offset = 1 + Math.floor(props.rng() * 2)
-  const tc = dev.minTrueCount !== undefined
-    ? (above ? threshold + offset : threshold - offset)
-    : (above ? threshold - offset : threshold + offset) // maxTrueCount: "above" = deeper negative → active
-  const active = dev.minTrueCount !== undefined ? tc >= dev.minTrueCount : tc <= dev.maxTrueCount!
-  return { dev, tc, active }
+  const tc = threshold.kind === 'min'
+    ? (above ? threshold.value + offset : threshold.value - offset)
+    : (above ? threshold.value - offset : threshold.value + offset) // max: "above" = deeper negative → active
+  return { dev, tc, active: deviationActive(dev, tc, surrenderLegal.value) }
 }
 
 const question = ref<Question>(makeQuestion())
 const verdict = ref<{ correct: boolean, explanation: string } | null>(null)
-const streak = ref(0)
+const { streak, best, grade } = useDrillStreak('deviation-quiz')
 
 const options = computed(() => {
   const devLabel = question.value.dev.play.replace('-', ' ')
@@ -63,17 +74,13 @@ const options = computed(() => {
 function answer(id: 'deviate' | 'book'): void {
   const q = question.value
   const correct = q.active ? id === 'deviate' : id === 'book'
-  const threshold = q.dev.minTrueCount !== undefined ? `TC ≥ ${q.dev.minTrueCount}` : `TC ≤ ${q.dev.maxTrueCount}`
+  const t = deviationThreshold(q.dev, surrenderLegal.value)
+  const threshold = t.kind === 'min' ? `TC ≥ ${t.value}` : `TC < ${t.value}`
   verdict.value = {
     correct,
     explanation: `${q.dev.description} applies at ${threshold}; the count is ${q.tc.toFixed(0)} → ${q.active ? 'deviate' : 'stay with the book'}.`
   }
-  if (correct) {
-    streak.value++
-    store.recordDrillBest('deviation-quiz', streak.value)
-  } else {
-    streak.value = 0
-  }
+  grade(correct)
 }
 
 function next(): void {
@@ -84,10 +91,10 @@ function next(): void {
 
 <template>
   <div class="space-y-3">
-    <div class="flex items-center justify-between text-xs text-neutral-400">
-      <span>Streak: <span class="font-mono font-bold text-[var(--accent-gold)]">{{ streak }}</span></span>
-      <span>Best: <span class="font-mono">{{ store.training.drillBests['deviation-quiz'] ?? 0 }}</span></span>
-    </div>
+    <DrillScoreHeader
+      :streak="streak"
+      :best="best"
+    />
 
     <div
       class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3 text-center"

@@ -205,3 +205,56 @@ describe('useBlackjackStore — drill times and bet ramp', () => {
     expect(old.training.drillTimes).toEqual({})
   })
 })
+
+describe('useBlackjackStore — persistence hardening', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  function started() {
+    const store = useBlackjackStore()
+    store.initSession({
+      rules: cloneRules(PRESETS.VEGAS_STRIP_6D!),
+      mode: 'quick',
+      speed: 'normal',
+      flair: true,
+      botIds: ['bea'],
+      advisor: 'coach',
+      count: 'shown',
+      advancedDeviations: false
+    }, 100_000)
+    return store
+  }
+
+  it('stashes a backup before discarding an unreadable or old-version payload', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 999, bankroll: 5000 }))
+    const store = useBlackjackStore()
+    expect(store.restore()).toBe(false)
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem(`${STORAGE_KEY}.bak`)).toContain('999')
+  })
+
+  it('advanceBotState moves bot bet progression through a store action', () => {
+    const store = started()
+    store.advanceBotState('bea', 'win', 2000)
+    expect(store.botStates.bea).toEqual({ last: 'win', bet: 2000 })
+  })
+
+  it('round-trips the in-flight round trail with the session payload', () => {
+    const store = started()
+    store.setRoundTrail({ visible: ['A♠', '5♦'], decisions: [], insurance: null })
+    store.persist()
+    setActivePinia(createPinia())
+    const store2 = useBlackjackStore()
+    expect(store2.restore()).toBe(true)
+    expect(store2.roundTrail).toEqual({ visible: ['A♠', '5♦'], decisions: [], insurance: null })
+  })
+
+  it('flags a cross-tab write to the session key', () => {
+    const store = started()
+    expect(store.crossTabConflict).toBe(false)
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
+    expect(store.crossTabConflict).toBe(true)
+  })
+})

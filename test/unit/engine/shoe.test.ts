@@ -103,3 +103,16 @@ describe('Shoe', () => {
     expect(calls).toBe(0)
   })
 })
+
+describe('mid-round reshuffle counter', () => {
+  it('increments when the rack is recycled so the game can announce the shuffle', () => {
+    const shoe = new Shoe(1, 0.9, mulberry32(5))
+    expect(shoe.midRoundReshuffles()).toBe(0)
+    const drawn = [] as ReturnType<typeof shoe.draw>[]
+    while (shoe.cardsRemaining() > 0) drawn.push(shoe.draw())
+    shoe.discard(drawn.splice(0)) // everything into the rack
+    const recycled = shoe.draw() // must reshuffle the rack
+    expect(recycled).toBeDefined()
+    expect(shoe.midRoundReshuffles()).toBe(1)
+  })
+})

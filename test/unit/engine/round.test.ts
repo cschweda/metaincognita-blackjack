@@ -373,3 +373,213 @@ describe('BlackjackGame — side bets through the round', () => {
     expect(insuranceEvents[0]!.net).toBe(-500)
   })
 })
+
+describe('five-card 21 (MA §16)', () => {
+  const R5 = (() => {
+    const r = cloneRules(RULES)
+    r.fiveCard21Pays2to1 = true
+    return r
+  })()
+
+  it('pays 2:1 when the dealer finishes below 21 (§16(a))', () => {
+    // hero 2,3 hits 2,4,T → five-card 21; dealer 8+7 draws 5 → 20
+    const g = game([c(2), c(8, 'hearts'), c(3), c(7, 'clubs'),
+      c(2, 'diamonds'), c(4, 'diamonds'), c(10, 'diamonds'), c(5, 'hearts')], R5)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit')
+    g.act(0, 'hit')
+    g.act(0, 'hit')
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(2000)
+  })
+
+  it('is a void wager when the dealer also makes 21 (§16(b)) — not a 2:1 win', () => {
+    // hero five-card 21 as above; dealer 8+7 draws 6 → 21
+    const g = game([c(2), c(8, 'hearts'), c(3), c(7, 'clubs'),
+      c(2, 'diamonds'), c(4, 'diamonds'), c(10, 'diamonds'), c(6, 'hearts')], R5)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit')
+    g.act(0, 'hit')
+    g.act(0, 'hit')
+    expect(g.spots[0]!.hands[0]!.outcome).toBe('push')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(0)
+  })
+})
+
+describe('Buster forced completion (MA §27(f)(3))', () => {
+  it('draws to soft 18 even at an S17 table when only the Buster keeps the dealer drawing', () => {
+    const r = cloneRules(RULES) // S17
+    r.sideBets = { ...r.sideBets, buster: 'A' }
+    // hero T,6 hits T → bust; dealer 6 up, A hole = soft 17 → §27(f)(3)(ii) mandates a draw
+    const g = game([c(10), c(6, 'hearts'), c(6, 'clubs'), c(14, 'clubs'),
+      c(10, 'diamonds'), c(4, 'hearts')], r)
+    g.beginRound([{ spotId: 0, mainBet: 1000, sideBets: { buster: 500 } }])
+    g.act(0, 'hit') // bust
+    expect(g.phase).toBe('complete')
+    expect(g.dealerCards.length).toBeGreaterThan(2) // drew on soft 17 for the Buster
+    const buster = g.spots[0]!.sideBetResults.find(x => x.name === 'Buster')!
+    expect(buster.net).toBe(-500) // dealer made 21, no bust
+  })
+
+  it('keeps the table S17 rule when live hands force completion anyway', () => {
+    const r = cloneRules(RULES)
+    r.sideBets = { ...r.sideBets, buster: 'A' }
+    // hero stands 19; dealer 6 up, A hole = soft 17 → table rule (S17) stands
+    const g = game([c(10), c(6, 'hearts'), c(9, 'clubs'), c(14, 'clubs')], r)
+    g.beginRound([{ spotId: 0, mainBet: 1000, sideBets: { buster: 500 } }])
+    g.act(0, 'stand')
+    expect(g.phase).toBe('complete')
+    expect(g.dealerCards.length).toBe(2) // S17: stands soft 17
+  })
+})
+
+describe('resplitting aces is optional (rules violation fix)', () => {
+  it('offers stand alongside split on a re-paired ace and plays it out', () => {
+    const r = cloneRules(RULES)
+    r.resplitAces = true
+    // hero A,A vs dealer 9 up, T hole; split → first hand draws another ace
+    const g = game([c(14), c(9, 'hearts'), c(14, 'hearts'), c(10, 'clubs'),
+      c(14, 'diamonds'), c(5, 'diamonds')], r)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'split')
+    expect(g.legalFor(0)).toEqual(['split', 'stand'])
+    g.act(0, 'stand') // decline the resplit — stand on the 12
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.hands).toHaveLength(2)
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(-1000) // 12 loses to 19
+    expect(g.spots[0]!.hands[1]!.netResult).toBe(-1000) // A,5 = 16 loses to 19
+  })
+})
+
+describe('mid-round rack reshuffle (MA §15(g))', () => {
+  class ReshufflingSource implements CardSource {
+    count = 0
+    constructor(private stack: Card[], private refill: Card[]) {}
+    draw(): Card {
+      if (!this.stack.length) {
+        this.count++
+        this.stack = [...this.refill]
+      }
+      return this.stack.shift()!
+    }
+
+    midRoundReshuffles(): number { return this.count }
+    discard(): void {}
+    needsShuffle(): boolean { return false }
+    freshShoe(): void {}
+    cardsRemaining(): number { return this.stack.length }
+    estimatedDecksRemaining(): number { return 1 }
+    decksRemaining(): number { return this.stack.length / 52 }
+  }
+
+  it('emits a shuffle event so the count tracker resets for the recycled cards', () => {
+    // exactly the 4 deal cards; the hero hit exhausts the stack → mid-round reshuffle
+    const source = new ReshufflingSource(
+      [c(10), c(10, 'hearts'), c(6, 'clubs'), c(9, 'clubs')],
+      [c(2, 'diamonds'), c(7, 'diamonds')]
+    )
+    const g = new BlackjackGame(RULES, { shoe: source })
+    const events: string[] = []
+    g.on((e) => {
+      events.push(e.type)
+    })
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    expect(events).not.toContain('shuffle')
+    g.act(0, 'hit') // draws from the reshuffled rack
+    expect(events).toContain('shuffle')
+    // the shuffle must precede the card dealt from the recycled rack
+    expect(events.indexOf('shuffle')).toBeLessThan(events.lastIndexOf('card-dealt'))
+  })
+})
+
+describe('no-peek games — the hole card is not consulted until the reveal', () => {
+  const NP = (() => {
+    const r = cloneRules(RULES)
+    r.dealerPeek = false
+    return r
+  })()
+
+  it('holds a player blackjack vs a ten up — standoff against a dealer natural (MA §7(b))', () => {
+    const g = game([c(14), c(10, 'hearts'), c(13), c(14, 'clubs')], NP) // A,K vs T up, A hole
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.hands[0]!.outcome).toBe('push')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(0)
+  })
+
+  it('pays the held blackjack 3:2 only after the reveal shows no natural', () => {
+    const g = game([c(14), c(10, 'hearts'), c(13), c(9, 'clubs')], NP) // A,K vs T up, 9 hole
+    const order: string[] = []
+    g.on((e) => {
+      if (e.type === 'hole-revealed') order.push('reveal')
+      if (e.type === 'hand-settled') order.push(`settle:${e.outcome}`)
+    })
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(1500)
+    expect(order.indexOf('reveal')).toBeLessThan(order.indexOf('settle:blackjack'))
+  })
+
+  it('a multi-card 21 loses in full to a revealed dealer natural — blackjack beats 21', () => {
+    const g = game([c(7), c(10, 'hearts'), c(7, 'hearts'), c(14, 'clubs'), c(7, 'diamonds')], NP)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit') // 21 in three cards
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.hands[0]!.outcome).toBe('lose')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(-1000)
+  })
+
+  it('doubles lose the full doubled stake to a dealer natural (documented full-loss model)', () => {
+    const g = game([c(6), c(10, 'hearts'), c(5, 'hearts'), c(14, 'clubs'), c(9, 'diamonds')], NP)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'double')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(-2000)
+  })
+
+  it('defers insurance settlement to the reveal — dealer natural pays 2:1 then', () => {
+    const g = game([c(10), c(14, 'hearts'), c(9), c(10, 'clubs')], NP) // hero 19; A up, T hole
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    expect(g.phase).toBe('insurance')
+    g.insuranceDecision(0, 500)
+    g.finishInsurance()
+    expect(g.phase).toBe('playerTurns') // the round continues — no peek happened
+    expect(g.spots[0]!.insuranceNet).toBe(0)
+    g.act(0, 'stand')
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.insuranceNet).toBe(1000)
+    expect(g.spots[0]!.hands[0]!.outcome).toBe('lose')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(-1000)
+  })
+
+  it('insurance loses at the reveal when the dealer misses', () => {
+    const g = game([c(10), c(14, 'hearts'), c(9), c(8, 'clubs')], NP) // hero 19; A up, 8 hole = 19
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.insuranceDecision(0, 500)
+    g.finishInsurance()
+    g.act(0, 'stand')
+    expect(g.phase).toBe('complete')
+    expect(g.spots[0]!.insuranceNet).toBe(-500)
+    expect(g.spots[0]!.hands[0]!.outcome).toBe('push') // 19 vs 19
+  })
+
+  it('settles even money immediately — it needs no hole-card knowledge', () => {
+    const g = game([c(14), c(14, 'hearts'), c(13), c(10, 'clubs')], NP) // hero A,K; A up, T hole
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.insuranceDecision(0, 'even-money')
+    g.finishInsurance()
+    expect(g.spots[0]!.hands[0]!.outcome).toBe('blackjack')
+    expect(g.spots[0]!.hands[0]!.netResult).toBe(1000)
+    expect(g.phase).toBe('complete')
+  })
+
+  it('Lucky Ladies Q♥ pair waits for the reveal and hits the 1000:1 dealer-BJ tier', () => {
+    const r = cloneRules(NP)
+    r.sideBets = { ...r.sideBets, luckyLadies: 'MA-A' }
+    const g = game([c(12, 'hearts'), c(10, 'hearts'), c(12, 'hearts'), c(14, 'clubs')], r)
+    g.beginRound([{ spotId: 0, mainBet: 1000, sideBets: { luckyLadies: 500 } }])
+    g.act(0, 'stand') // hero 20 stands; reveal shows the natural
+    expect(g.phase).toBe('complete')
+    const ll = g.spots[0]!.sideBetResults.find(x => x.name === 'Lucky Ladies')!
+    expect(ll.net).toBe(500 * 1000) // qh-pair-dealer-bj tier (MA §24(f))
+  })
+})

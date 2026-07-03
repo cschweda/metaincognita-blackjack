@@ -33,3 +33,43 @@ describe('ChipStack', () => {
     expect(w.find('[aria-label]').exists()).toBe(false)
   })
 })
+
+describe('PlayingCard — information leaks and accessible names', () => {
+  it('never puts a face-down card\'s identity in the DOM (hole card must not leak)', async () => {
+    const w = await mountSuspended(PlayingCard, {
+      props: { card: { rank: 14, suit: 'spades' }, faceUp: false }
+    })
+    expect(w.text()).not.toContain('A')
+    expect(w.text()).not.toContain('♠')
+    expect(w.attributes('aria-label')).toBe('Face-down card')
+  })
+
+  it('names the card for assistive tech and hides the glyph internals', async () => {
+    const w = await mountSuspended(PlayingCard, {
+      props: { card: { rank: 14, suit: 'spades' }, faceUp: true }
+    })
+    expect(w.attributes('role')).toBe('img')
+    expect(w.attributes('aria-label')).toBe('Ace of spades')
+    expect(w.find('.card-front').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('names number and court cards naturally', async () => {
+    const ten = await mountSuspended(PlayingCard, {
+      props: { card: { rank: 10, suit: 'hearts' }, faceUp: true }
+    })
+    expect(ten.attributes('aria-label')).toBe('10 of hearts')
+    const queen = await mountSuspended(PlayingCard, {
+      props: { card: { rank: 12, suit: 'diamonds' }, faceUp: true }
+    })
+    expect(queen.attributes('aria-label')).toBe('Queen of diamonds')
+  })
+})
+
+describe('ChipStack — accessible naming', () => {
+  it('exposes the labelled stack as an image role', async () => {
+    const w = await mountSuspended(ChipStack, { props: { amount: 13600 } })
+    const labelled = w.find('[aria-label]')
+    expect(labelled.exists()).toBe(true)
+    expect(labelled.attributes('role')).toBe('img')
+  })
+})

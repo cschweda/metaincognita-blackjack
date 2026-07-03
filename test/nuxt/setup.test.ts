@@ -55,3 +55,21 @@ describe('setup page — training options', () => {
     expect(w.find('[data-testid="advanced-switch"]').exists()).toBe(true) // default self-check ≠ off
   })
 })
+
+describe('setup pickers — pressed state for assistive tech', () => {
+  it('PresetPicker exposes the selected preset with aria-pressed', async () => {
+    const w = await mountSuspended(PresetPicker, { props: { modelValue: 'VEGAS_STRIP_6D' } })
+    const pressed = w.findAll('[aria-pressed="true"]')
+    expect(pressed).toHaveLength(1)
+    expect(pressed[0]!.text()).toContain('Vegas')
+  })
+
+  it('BotPicker exposes selection state and the at-max lockout', async () => {
+    const w = await mountSuspended(BotPicker, { props: { modelValue: ['bea'], max: 1 } })
+    const beaBtn = w.find('[data-testid="bot-bea"]')
+    expect(beaBtn.attributes('aria-pressed')).toBe('true')
+    const nancyBtn = w.find('[data-testid="bot-nancy"]')
+    expect(nancyBtn.attributes('aria-pressed')).toBe('false')
+    expect(nancyBtn.attributes('disabled')).toBeDefined() // at max — not silently ignored
+  })
+})

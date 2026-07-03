@@ -1,3 +1,5 @@
+import { version } from './package.json'
+
 export default defineNuxtConfig({
 
   modules: ['@pinia/nuxt', '@nuxt/eslint', '@nuxt/ui', '@nuxt/test-utils'],
@@ -42,6 +44,13 @@ export default defineNuxtConfig({
 
   // branded boot screen while the SPA bundle loads (app/spa-loading-template.html)
   spaLoadingTemplate: true,
+
+  runtimeConfig: {
+    public: {
+      // single source of truth: package.json — the footer reads this at build time
+      version
+    }
+  },
 
   compatibilityDate: '2025-01-15',
 

@@ -17,8 +17,10 @@ function toggle(id: PersonaId): void {
       v-for="persona in PERSONAS"
       :key="persona.id"
       type="button"
-      class="rounded-lg border p-3 text-left transition-colors"
+      class="rounded-lg border p-3 text-left transition-colors disabled:opacity-50"
       :class="selected.includes(persona.id) ? 'border-[var(--accent-gold)] bg-neutral-900' : 'border-neutral-800 bg-neutral-900/50 hover:border-neutral-600'"
+      :aria-pressed="selected.includes(persona.id)"
+      :disabled="!selected.includes(persona.id) && selected.length >= max"
       :data-testid="`bot-${persona.id}`"
       @click="toggle(persona.id)"
     >

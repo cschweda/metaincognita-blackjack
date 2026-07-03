@@ -3,8 +3,6 @@ const props = withDefaults(defineProps<{
   rng?: () => number
 }>(), { rng: () => Math.random() })
 
-const store = useBlackjackStore()
-
 interface Question {
   rc: number
   decksRemaining: number // half-deck steps, 0.5–6
@@ -21,7 +19,7 @@ function makeQuestion(): Question {
 const question = ref<Question>(makeQuestion())
 const entered = ref<number | null>(null)
 const verdict = ref<{ correct: boolean, actual: number } | null>(null)
-const streak = ref(0)
+const { streak, best, grade } = useDrillStreak('true-count')
 
 const trayPct = computed(() =>
   Math.round(((question.value.decksTotal - question.value.decksRemaining) / question.value.decksTotal) * 100))
@@ -31,12 +29,7 @@ function submit(): void {
   const actual = question.value.rc / question.value.decksRemaining
   const correct = Math.abs(entered.value - actual) <= 0.5
   verdict.value = { correct, actual }
-  if (correct) {
-    streak.value++
-    store.recordDrillBest('true-count', streak.value)
-  } else {
-    streak.value = 0
-  }
+  grade(correct)
 }
 
 function next(): void {
@@ -48,10 +41,10 @@ function next(): void {
 
 <template>
   <div class="space-y-3">
-    <div class="flex items-center justify-between text-xs text-neutral-400">
-      <span>Streak: <span class="font-mono font-bold text-[var(--accent-gold)]">{{ streak }}</span></span>
-      <span>Best: <span class="font-mono">{{ store.training.drillBests['true-count'] ?? 0 }}</span></span>
-    </div>
+    <DrillScoreHeader
+      :streak="streak"
+      :best="best"
+    />
 
     <div
       class="flex items-center justify-center gap-6"

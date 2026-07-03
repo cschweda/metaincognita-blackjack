@@ -67,4 +67,31 @@ describe('DeviationQuiz', () => {
     expect(verdict.exists()).toBe(true)
     expect(verdict.text()).toMatch(/applies at TC/)
   })
+
+  it('always offers two distinct answers — the book side comes from the engine', async () => {
+    const w = await mountSuspended(DeviationQuiz, { props: { rng: mulberry32(3) } })
+    for (let i = 0; i < 60; i++) {
+      const deviate = w.find('[data-testid="quiz-deviate"]')
+      const book = w.find('[data-testid="quiz-book"]')
+      expect(deviate.exists()).toBe(true)
+      expect(book.exists()).toBe(true)
+      expect(deviate.text().trim().toLowerCase()).not.toBe(book.text().trim().toLowerCase())
+      await deviate.trigger('click')
+      await w.find('[data-testid="quiz-next"]').trigger('click')
+    }
+  })
+
+  it('shows stand as the book answer for the negative-count hit deviations', async () => {
+    const w = await mountSuspended(DeviationQuiz, { props: { rng: mulberry32(3) } })
+    for (let i = 0; i < 200; i++) {
+      const situation = w.find('[data-testid="quiz-situation"]').text()
+      if (/hard 13 vs dealer 2/.test(situation)) {
+        expect(w.find('[data-testid="quiz-book"]').text().trim().toLowerCase()).toBe('stand')
+        return
+      }
+      await w.find('[data-testid="quiz-deviate"]').trigger('click')
+      await w.find('[data-testid="quiz-next"]').trigger('click')
+    }
+    throw new Error('never rolled hard 13 vs dealer 2 in 200 questions')
+  })
 })

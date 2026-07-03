@@ -29,29 +29,48 @@ const isRed = computed(() => {
   return props.card && (props.card.suit === 'hearts' || props.card.suit === 'diamonds')
 })
 
-const suitColor = computed(() => isRed.value ? '#dc2626' : '#1a1a1a')
+const suitColor = computed(() => isRed.value ? 'var(--card-red)' : 'var(--card-black)')
+
+const RANK_NAMES: Record<number, string> = { 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace' }
+
+/** Accessible name: face-up cards are named; a face-down card is only ever "Face-down card" —
+ *  the identity must not exist anywhere in the DOM before the reveal (count integrity). */
+const cardName = computed(() => {
+  if (!props.faceUp || !props.card) return 'Face-down card'
+  const rank = RANK_NAMES[props.card.rank] ?? String(props.card.rank)
+  return `${rank} of ${props.card.suit}`
+})
 </script>
 
 <template>
   <div
     :class="sizeClasses.card"
     class="card-perspective"
+    role="img"
+    :aria-label="cardName"
   >
     <div
       class="card-inner"
       :class="{ 'is-flipped': faceUp && card }"
     >
       <!-- Card back -->
-      <div class="card-face card-back">
+      <div
+        class="card-face card-back"
+        aria-hidden="true"
+      >
         <div
           class="absolute inset-[3px] rounded-md border border-yellow-700/40"
           style="background: repeating-linear-gradient(45deg, #6b1a1a 0px, #6b1a1a 3px, #1a1a4c 3px, #1a1a4c 6px);"
         />
       </div>
 
-      <!-- Card face -->
-      <div class="card-face card-front">
-        <template v-if="card">
+      <!-- Card face — rendered only once revealed: a face-down card's rank/suit must never
+           be present in the DOM (find-in-page and screen readers would leak the hole card) -->
+      <div
+        class="card-face card-front"
+        aria-hidden="true"
+      >
+        <template v-if="card && faceUp">
           <!-- Top-left corner: rank + small suit -->
           <div
             class="absolute top-1 left-1.5 flex flex-col items-center leading-none"

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useGameLoop, __resetGameLoopForTests } from '../../app/composables/useGameLoop'
-import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
+import { useBlackjackStore, STORAGE_KEY } from '../../app/stores/useBlackjackStore'
+import { displayCard } from '../../app/utils/engine/cards'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
 import type { SessionSettings } from '../../app/stores/useBlackjackStore'
 import { __resetCountingForTests } from '../../app/composables/useCounting'
@@ -192,5 +193,173 @@ describe('useGameLoop (quick mode)', () => {
       expect(loop.heroTurn.value!.cards.length).toBeGreaterThanOrEqual(2)
       expect(loop.heroTurn.value!.dealerUp).toBeDefined()
     }
+  })
+
+  function freshHarness(): void {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    __resetGameLoopForTests()
+    __resetCountingForTests()
+  }
+
+  it('withholds double and split when the bankroll cannot cover the extra stake', () => {
+    // find a seed whose first round is a two-card hero turn offering double
+    let seed = 0
+    for (let s = 1; s < 80 && !seed; s++) {
+      freshHarness()
+      const probe = useGameLoop()
+      probe.startSession(settings(), 100_000, s)
+      probe.beginRound(1000, {})
+      if (probe.phase.value === 'insurance') probe.heroInsurance(null)
+      if (probe.phase.value === 'playerTurns' && probe.legalActions.value.includes('double')) seed = s
+    }
+    expect(seed).toBeGreaterThan(0)
+
+    // the same deal all-in: the unaffordable double must not be offered
+    freshHarness()
+    const loop = useGameLoop()
+    loop.startSession(settings(), 1000, seed)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    expect(loop.phase.value).toBe('playerTurns')
+    expect(loop.legalActions.value).toContain('hit')
+    expect(loop.legalActions.value).not.toContain('double')
+  })
+
+  function walkToInsurance(loop: ReturnType<typeof useGameLoop>): void {
+    let guard = 0
+    while (loop.phase.value !== 'insurance' && guard++ < 40) {
+      if (loop.phase.value === 'playerTurns') {
+        loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+      } else {
+        loop.beginRound(1000, {})
+      }
+    }
+    expect(loop.phase.value).toBe('insurance')
+  }
+
+  it('ignores a repeated insurance decision instead of double-recording and throwing', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, 33)
+    walkToInsurance(loop)
+    loop.heroInsurance(null)
+    expect(() => loop.heroInsurance(500)).not.toThrow()
+    expect(store.training.adherence.insurance.decisions).toBe(1)
+  })
+
+  it('does not record an insurance decision the engine rejected', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, 33)
+    walkToInsurance(loop)
+    expect(() => loop.heroInsurance(999_999)).not.toThrow() // over the half-wager cap
+    expect(store.training.adherence.insurance.decisions).toBe(0)
+    loop.heroInsurance(null) // insurance is still open — the real decision goes through
+    expect(store.training.adherence.insurance.decisions).toBe(1)
+  })
+
+  it('drops an action aimed at a hand index that has already advanced', () => {
+    const loop = useGameLoop()
+    loop.startSession(settings(), 100_000, 7)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    expect(loop.phase.value).toBe('playerTurns')
+    loop.act('hit', 5) // stale index from a double-click — must be ignored
+    expect(loop.lastDecision.value).toBeNull()
+    expect(loop.phase.value).toBe('playerTurns')
+  })
+
+  function playFullRound(loop: ReturnType<typeof useGameLoop>): void {
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    while (loop.phase.value === 'playerTurns') {
+      loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+    }
+    expect(loop.phase.value).toBe('complete')
+  }
+
+  it('round numbering continues after a refresh instead of restarting at 1', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings(), 100_000, 7)
+    playFullRound(loop)
+    expect(store.history[0]!.round).toBe(1)
+
+    __resetGameLoopForTests() // refresh: module state gone, store survives
+    const loop2 = useGameLoop()
+    expect(loop2.restoreSession()).toBe(true)
+    playFullRound(loop2)
+    expect(store.history[1]!.round).toBe(2)
+  })
+
+  it('a corrupt round snapshot falls back to a fresh table instead of bricking /table', () => {
+    const loop = useGameLoop()
+    loop.startSession(settings(), 100_000, 7)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    expect(loop.phase.value).toBe('playerTurns')
+
+    // simulate a corrupted-but-versioned snapshot landing in storage
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!) as Record<string, unknown>
+    const snap = raw.roundSnapshot as Record<string, unknown>
+    snap.spots = 'garbage'
+    ;(snap.shoe as Record<string, unknown>).cards = 'garbage'
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw))
+
+    setActivePinia(createPinia())
+    __resetGameLoopForTests()
+    __resetCountingForTests()
+    const loop2 = useGameLoop()
+    expect(loop2.restoreSession()).toBe(true) // must not throw
+    expect(loop2.phase.value).toBe('betting') // fresh shoe fallback
+    expect(useBlackjackStore().roundSnapshot).toBeNull() // the bad key is cleared for good
+  })
+
+  it('a mid-round refresh keeps the pre-refresh cards in the round record', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, 7)
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    expect(loop.phase.value).toBe('playerTurns')
+    const heroFirstCard = loop.spotsView.value.find(s => s.occupant === 'hero')!.hands[0]!.cards[0]!
+
+    __resetGameLoopForTests()
+    const loop2 = useGameLoop()
+    expect(loop2.restoreSession()).toBe(true)
+    while (loop2.phase.value === 'playerTurns') {
+      loop2.act(loop2.legalActions.value.includes('stand') ? 'stand' : loop2.legalActions.value[0]!)
+    }
+    const rec = store.history[0]!
+    // the record's visible-card trail must include cards dealt BEFORE the refresh
+    expect(rec.visibleCards).toContain(displayCard(heroFirstCard))
+  })
+
+  it('heroTurn advances across split hands so indexed actions land (stale-computed regression)', () => {
+    // Vue's computed stability keeps canAct at true→true across a split-hand advance;
+    // heroTurn must still recompute or act(action, handIndex) drops every follow-up action
+    const loop = useGameLoop()
+    loop.startSession(settings({ advisor: 'coach', count: 'self-check' }), 50_000, 133) // 8,8 seed
+    loop.beginRound(2500, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    expect(loop.legalActions.value).toContain('split')
+    loop.act('split', loop.heroTurn.value?.handIndex)
+    let guard = 0
+    while (loop.phase.value === 'playerTurns' && guard++ < 8) {
+      loop.act('stand', loop.heroTurn.value?.handIndex)
+    }
+    expect(loop.phase.value).toBe('complete')
+    const rec = useBlackjackStore().history[0]!
+    expect(rec.spots.find(s => s.occupant === 'hero')!.hands).toHaveLength(2)
+  })
+
+  it('lastDecision does not leak across sessions', () => {
+    const loop = useGameLoop()
+    loop.startSession(settings(), 100_000, 7)
+    playFullRound(loop)
+    expect(loop.lastDecision.value).not.toBeNull()
+    loop.endSession()
+    expect(loop.lastDecision.value).toBeNull()
   })
 })

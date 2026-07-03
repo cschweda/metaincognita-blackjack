@@ -33,7 +33,7 @@ const bots = computed(() => props.spots
     >
       <UIcon
         name="i-lucide-bot"
-        class="h-3 w-3 text-neutral-500"
+        class="h-3 w-3 text-neutral-400"
       />
       <span>{{ bot.name }}</span>
       <span
@@ -43,7 +43,7 @@ const bots = computed(() => props.spots
       >{{ OUTCOME_BADGE[bot.outcome]?.text }}</span>
       <span
         v-if="bot.quip"
-        class="max-w-36 truncate italic text-neutral-500"
+        class="max-w-36 truncate italic text-neutral-400"
       >"{{ bot.quip }}"</span>
     </div>
   </div>

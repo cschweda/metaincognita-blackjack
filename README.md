@@ -5,8 +5,8 @@
 # Blackjack Trainer
 
 ![Version](https://img.shields.io/badge/version-0.4.0-d4a847)
-![Tests](https://img.shields.io/badge/tests-317%20passing-16a34a)
-![E2E](https://img.shields.io/badge/playwright-9%20specs-2ead33)
+![Tests](https://img.shields.io/badge/tests-375%20passing-16a34a)
+![E2E](https://img.shields.io/badge/playwright-15%20e2e%20tests-2ead33)
 ![Nuxt](https://img.shields.io/badge/nuxt-4-00dc82)
 ![TypeScript](https://img.shields.io/badge/typescript-strict-3178c6)
 ![A11y](https://img.shields.io/badge/WCAG-2.1%20AA-1f6feb)

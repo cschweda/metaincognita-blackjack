@@ -25,6 +25,8 @@ export interface CardSource {
   cardsRemaining(): number
   decksRemaining(): number
   estimatedDecksRemaining(): number
+  /** Lifetime mid-round rack reshuffles (MA §15(g)) — diffed across draws to emit 'shuffle'. */
+  midRoundReshuffles?(): number
 }
 
 export type Phase = 'betting' | 'insurance' | 'playerTurns' | 'complete'
@@ -104,7 +106,13 @@ export class BlackjackGame {
   }
 
   private deal(to: 'dealer-up' | 'dealer-hole' | 'dealer-draw' | { spotId: number, handIndex: number }, faceUp: boolean): Card {
+    const reshufflesBefore = this.shoe.midRoundReshuffles?.() ?? 0
     const card = this.shoe.draw()
+    if ((this.shoe.midRoundReshuffles?.() ?? 0) > reshufflesBefore) {
+      // MA §15(g): the rack was reshuffled mid-round — recycled discards invalidate the count
+      this.emit({ type: 'shuffle' })
+      this.emit({ type: 'announce', text: 'Cards exhausted — rack shuffled to finish the round' })
+    }
     this.emit({ type: 'card-dealt', to, card, faceUp })
     if (faceUp) this.emit({ type: 'count-visible-card', card })
     return card
@@ -223,7 +231,27 @@ export class BlackjackGame {
 
   finishInsurance(): void {
     if (this.phase !== 'insurance') throw new IllegalActionError('insurance is not open')
+    if (!this.rules.dealerPeek) {
+      // No-peek: the hole card is not consulted now. Even money settles immediately (it is a
+      // guaranteed 1:1 whatever the hole shows); insurance waits for the reveal.
+      this.settleEvenMoney()
+      this.startPlayerTurns()
+      return
+    }
     this.resolvePeekAndContinue(true)
+  }
+
+  /** MA §7(c): even money settles before any peek outcome matters. */
+  private settleEvenMoney(): void {
+    for (const spot of this.spots) {
+      const hand = spot.hands[0]!
+      if (spot.tookEvenMoney && !hand.resolved) {
+        hand.netResult = hand.bet
+        hand.outcome = 'blackjack'
+        hand.resolved = true
+        this.emit({ type: 'hand-settled', spotId: spot.spotId, handIndex: 0, outcome: 'blackjack', net: hand.bet })
+      }
+    }
   }
 
   private afterInsurance(tenUp: boolean): void {
@@ -239,16 +267,7 @@ export class BlackjackGame {
     const dealerBJ = isBlackjack(this.dealerCards, false)
     if (this.rules.dealerPeek) this.emit({ type: 'peek-result', blackjack: dealerBJ })
 
-    // Even money settles now, before peek outcome matters (MA §7(c))
-    for (const spot of this.spots) {
-      const hand = spot.hands[0]!
-      if (spot.tookEvenMoney) {
-        hand.netResult = hand.bet
-        hand.outcome = 'blackjack'
-        hand.resolved = true
-        this.emit({ type: 'hand-settled', spotId: spot.spotId, handIndex: 0, outcome: 'blackjack', net: hand.bet })
-      }
-    }
+    this.settleEvenMoney()
 
     if (fromInsurance) {
       for (const spot of this.spots) {
@@ -307,16 +326,28 @@ export class BlackjackGame {
     }
   }
 
-  private startPlayerTurns(): void {
-    // Lucky Ladies needs dealer-BJ knowledge — reaching here means the peek said no (or up is 2-9)
-    this.settleLuckyLadies(false)
+  /** True when a face-down hole card could still complete a dealer natural. */
+  private get holeCouldMakeNatural(): boolean {
+    if (this.rules.dealerPeek || !this.dealerUp) return false
+    return this.dealerUp.rank === 14 || handTotal([this.dealerUp]).total === 10
+  }
 
-    // Blackjacks vs 2-9 up (or post-peek no-BJ) pay immediately at 3:2/6:5 (MA §7(a)-(b))
+  private startPlayerTurns(): void {
+    // Lucky Ladies needs dealer-BJ knowledge — settle now unless a no-peek hole could still
+    // hide a natural (then it waits for the reveal, MA §24(f) 1000:1 tier)
+    if (!this.holeCouldMakeNatural) this.settleLuckyLadies(false)
+
+    // Blackjacks vs 2-9 up (or post-peek no-BJ) pay immediately at 3:2/6:5 (MA §7(a)-(b));
+    // under no-peek with T/A up they are HELD until the reveal — a dealer natural is a standoff
     const bjPayNum = this.rules.blackjackPayout === '3:2' ? 3 : 6
     const bjPayDen = this.rules.blackjackPayout === '3:2' ? 2 : 5
     for (const spot of this.spots) {
       const hand = spot.hands[0]!
       if (!hand.resolved && isBlackjack(hand.cards, false)) {
+        if (this.holeCouldMakeNatural) {
+          hand.resolved = true // finished playing; settlement waits for the hole card
+          continue
+        }
         hand.netResult = Math.floor((hand.bet * bjPayNum) / bjPayDen)
         hand.outcome = 'blackjack'
         hand.resolved = true
@@ -426,31 +457,55 @@ export class BlackjackGame {
 
   private playDealerAndSettle(): void {
     const busterLive = this.spots.some(s => (s.sideBets.buster ?? 0) > 0) && this.rules.sideBets.buster !== 'off'
-    const liveHands = this.spots.flatMap(s => s.hands).filter(h => h.outcome === null && !h.surrendered && !isBust(h.cards))
+    const allHands = this.spots.flatMap(s => s.hands)
+    // Blackjacks held under no-peek don't need the dealer to draw — only the natural check
+    const pendingBlackjacks = allHands.filter(h => h.outcome === null && isBlackjack(h.cards, h.fromSplit))
+    const liveHands = allHands.filter(h =>
+      h.outcome === null && !h.surrendered && !isBust(h.cards) && !isBlackjack(h.cards, h.fromSplit))
+    const insurancePending = !this.rules.dealerPeek && this.spots.some(s => s.insuranceBet !== null)
 
     // MA §12(c): no draw when it cannot matter — unless a Buster wager forces completion (MA §27(f)(3))
     if (liveHands.length > 0 || busterLive) {
       this.revealHole()
-      this.dealerCards = dealerPlay(this.dealerCards, () => {
-        const card = this.shoe.draw()
-        this.emit({ type: 'card-dealt', to: 'dealer-draw', card, faceUp: true })
-        this.emit({ type: 'count-visible-card', card })
-        return card
-      }, this.rules)
+      // §27(f)(3)(ii): when ONLY the Buster keeps the dealer drawing, draw to hard 17 / soft 18
+      // — the dealer hits soft 17 even at an S17 table
+      const drawRules = liveHands.length === 0 && !this.rules.dealerHitsSoft17
+        ? { ...this.rules, dealerHitsSoft17: true }
+        : this.rules
+      this.dealerCards = dealerPlay(this.dealerCards, () => this.deal('dealer-draw', true), drawRules)
       this.emit({ type: 'announce', text: `Dealer ${isBust(this.dealerCards) ? 'busts' : handTotal(this.dealerCards).total}` })
+    } else if (pendingBlackjacks.length > 0 || insurancePending) {
+      this.revealHole() // no draw — only the natural check matters (MA §12(c))
     }
 
+    // Only reachable as true in no-peek games: peek rounds with a natural ended at the peek
+    const dealerNatural = isBlackjack(this.dealerCards, false)
     const dealerTotal = handTotal(this.dealerCards).total
     const dealerBusted = dealerTotal > 21
+    const bjPayNum = this.rules.blackjackPayout === '3:2' ? 3 : 6
+    const bjPayDen = this.rules.blackjackPayout === '3:2' ? 2 : 5
     for (const spot of this.spots) {
+      if (!this.rules.dealerPeek && spot.insuranceBet) {
+        spot.insuranceNet = dealerNatural ? spot.insuranceBet * 2 : -spot.insuranceBet
+        this.emit({ type: 'insurance-settled', spotId: spot.spotId, net: spot.insuranceNet })
+      }
       spot.hands.forEach((hand, i) => {
         if (hand.outcome !== null) return // settled earlier (BJ, surrender, bust, even money)
         const t = handTotal(hand.cards).total
         const fiveCard21 = this.rules.fiveCard21Pays2to1 && t === 21 && hand.cards.length >= 5
         let net: number
         let outcome: NonNullable<SettledHand['outcome']>
-        if (fiveCard21) {
-          net = hand.bet * 2 // MA §16(a)
+        if (isBlackjack(hand.cards, hand.fromSplit)) {
+          // held under no-peek: natural vs natural is a standoff (MA §7(b)), else 3:2/6:5
+          net = dealerNatural ? 0 : Math.floor((hand.bet * bjPayNum) / bjPayDen)
+          outcome = dealerNatural ? 'push' : 'blackjack'
+        } else if (dealerNatural) {
+          // documented no-peek model (rules editor): non-blackjack wagers lose in full,
+          // doubles and splits included
+          net = -hand.bet
+          outcome = 'lose'
+        } else if (fiveCard21 && dealerTotal !== 21) {
+          net = hand.bet * 2 // MA §16(a): 2:1 only when the dealer has not achieved 21
           outcome = 'win'
         } else if (dealerBusted || t > dealerTotal) {
           net = hand.bet
@@ -459,7 +514,7 @@ export class BlackjackGame {
           net = -hand.bet
           outcome = 'lose'
         } else {
-          net = 0
+          net = 0 // includes five-card 21 vs dealer 21 — a void wager (MA §16(b))
           outcome = 'push'
         }
         hand.netResult = net
@@ -467,8 +522,9 @@ export class BlackjackGame {
         this.emit({ type: 'hand-settled', spotId: spot.spotId, handIndex: i, outcome, net })
       })
 
-      this.settleBusterForSpot(spot, false)
+      this.settleBusterForSpot(spot, dealerNatural)
     }
+    this.settleLuckyLadies(dealerNatural) // deferred no-peek T/A-up case; once-only guard elsewhere
     this.completeRound()
   }
 

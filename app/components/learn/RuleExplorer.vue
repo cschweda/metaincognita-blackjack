@@ -19,7 +19,10 @@ function reset(): void {
     <p class="text-xs text-neutral-400">
       Toggle a rule, watch the edge move. Baseline: Vegas Strip 6-deck ({{ (baseline * 100).toFixed(2) }}%).
     </p>
-    <RulesEditor v-model="draft" />
+    <RulesEditor
+      v-model="draft"
+      :show-edge="false"
+    />
     <div class="flex items-center gap-3">
       <p
         v-if="edge !== null"

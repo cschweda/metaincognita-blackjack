@@ -15,8 +15,9 @@ describe('PRESETS', () => {
   })
 
   it('encodes jurisdiction facts from the rulebooks', () => {
-    expect(PRESETS.MA_205CMR.maxSplitHands).toBe(4) // MA §11(e)
+    expect(PRESETS.MA_205CMR.maxSplitHands).toBe(3) // MA §11(e): four hands only at ≤6-box tables; this is a 7-box table
     expect(PRESETS.AC_BALLYS.maxSplitHands).toBe(3) // AC guide: "total of three hands"
+    expect(PRESETS.AC_BALLYS.sideBets.luckyLadies).toBe('MA-A') // guide: "up to 125 to 1" + 1000:1 bonus = Table A
     expect(PRESETS.WA_CARDROOM.spots).toBe(9) // WA §1
     expect(PRESETS.WA_CARDROOM.maxSplitHands).toBe(3) // WA splitting section
     expect(PRESETS.SINGLE_DECK_65.blackjackPayout).toBe('6:5')

@@ -70,7 +70,7 @@ function randomSituation(): Situation {
 const situation = ref<Situation>(randomSituation())
 /** chosen === null → timed out */
 const verdict = ref<{ chosen: Action | null, correct: boolean, book: Action } | null>(null)
-const streak = ref(0)
+const { streak, grade } = useDrillStreak('strategy-flash')
 
 // timed mode (spec §6: "timed, streak") — 10s per situation, toggleable
 const TIME_LIMIT_MS = 10_000
@@ -92,7 +92,7 @@ function startClock(): void {
     if (timeLeft.value <= 0) {
       stopClock()
       verdict.value = { chosen: null, correct: false, book: bookAction.value }
-      streak.value = 0
+      grade(false)
     }
   }, 250)
 }
@@ -120,12 +120,7 @@ function answer(action: Action): void {
   stopClock()
   const correct = action === bookAction.value
   verdict.value = { chosen: action, correct, book: bookAction.value }
-  if (correct) {
-    streak.value++
-    store.recordDrillBest('strategy-flash', streak.value)
-  } else {
-    streak.value = 0
-  }
+  grade(correct)
 }
 
 function next(): void {
