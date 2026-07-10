@@ -1,6 +1,6 @@
 [build]
-  # deploys are gated on the unit/nuxt suites — a red suite must never ship
-  command = "pnpm test && pnpm generate"
+  # CI gates merges (lint/typecheck/tests/coverage floors + e2e); deploys just build.
+  command = "pnpm generate"
   publish = "dist"
 
 [build.environment]
@@ -17,4 +17,26 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.iconify.design"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    # script-src keeps 'unsafe-inline' by decision (spec §4, option A): the generated SPA
+    # ships two inline scripts and one embeds per-release config, so static hashes rot
+    # every release; there is no server, no user content, and no third-party script —
+    # 'self' still blocks all remote script loading. style-src needs it for Vue bindings.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/_nuxt/*"
+  [headers.values]
+    # content-hashed filenames — safe to cache forever
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

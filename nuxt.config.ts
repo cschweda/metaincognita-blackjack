@@ -64,8 +64,14 @@ export default defineNuxtConfig({
   },
 
   icon: {
+    // no runtime icon provider — every icon ships in the client bundle (guidelines §1.3
+    // local-only; the CSP has no iconify host). scan covers icons named in app source;
+    // the explicit list covers @nuxt/ui internals the scan cannot see (measured via the
+    // render smoke — each entry came from a captured api.iconify.design request).
+    provider: 'none',
     clientBundle: {
-      scan: true
+      scan: true,
+      icons: ['lucide:check', 'lucide:x']
     }
   }
 })
