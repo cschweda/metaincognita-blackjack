@@ -357,17 +357,24 @@ git commit -m "ci: enforce measured coverage floors (engine per-file bots, compo
 - Consumes: nothing from earlier tasks.
 - Produces: the deployed header set; a local-only icon pipeline.
 
-- [ ] **Step 1: Disable the iconify API fallback**
+- [ ] **Step 1: Disable the iconify runtime provider** *(corrected during execution — the
+  original `fallbackToApi: false` is a no-op under ssr:false, where @nuxt/icon defaults
+  `provider: 'iconify'` and only the `'server'` branch consults the fallback flag; the
+  render smoke caught a live `api.iconify.design` fetch for @nuxt/ui's internal `check`
+  icon, which no source scan can see. See spec §4 correction.)*
 
-In `nuxt.config.ts`, extend the icon block:
+In `nuxt.config.ts`, set the icon block to:
 
 ```ts
   icon: {
-    // all icons ship in the client bundle — never call api.iconify.design at runtime
-    // (guidelines §1.3 local-only; the CSP below drops the host entirely)
-    fallbackToApi: false,
+    // no runtime icon provider — every icon ships in the client bundle (guidelines §1.3
+    // local-only; the CSP below has no iconify host). scan covers icons named in app
+    // source; the explicit list covers @nuxt/ui internals the scan cannot see (each
+    // entry measured from a captured api.iconify.design request in the render smoke)
+    provider: 'none',
     clientBundle: {
-      scan: true
+      scan: true,
+      icons: [/* measured union from the baseline smoke capture, e.g. 'lucide:check' */]
     }
   }
 ```

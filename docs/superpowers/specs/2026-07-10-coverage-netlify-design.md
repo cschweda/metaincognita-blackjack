@@ -88,11 +88,18 @@ Deltas vs today, each evidence-based:
 
 - `font-src` drops `https://fonts.gstatic.com` — zero references in source or built output
   (verified by grep of `app/`, `nuxt.config.ts`, and `dist/`).
-- `connect-src` drops `https://api.iconify.design` — requires disabling @nuxt/icon's runtime
-  API fallback in `nuxt.config.ts` (`icon.fallbackToApi: false` alongside the existing
-  `clientBundle.scan`). All icons ship in the client bundle (12 icons, 3.71KB); the fallback
-  is a silent violation of the suite guidelines' local-only commitment (§1.3 "no external
-  runtime calls"). Render-verified by browser smoke (see §5).
+- `connect-src` drops `https://api.iconify.design` — requires `icon.provider: 'none'` plus an
+  explicit `clientBundle.icons` allow-list for icons the source scan cannot see.
+  **Correction (found by the §5 render smoke during implementation):** the originally
+  specified `fallbackToApi: false` is a no-op in SSR-false apps — @nuxt/icon defaults
+  `provider` to `'iconify'` there, and only the `'server'` provider branch consults
+  `fallbackToApi`; the `'iconify'` provider always fetches. The smoke also proved a real
+  runtime fetch exists: @nuxt/ui's internal default `check` icon (Checkbox/Select) appears in
+  no app source text, so `clientBundle.scan` never bundles it. Mechanism: capture every
+  `api.iconify.design` request across all routes under the current provider (each request
+  names its icons), add exactly those to `clientBundle.icons`, then set `provider: 'none'`
+  and re-smoke — icon counts unchanged, zero external requests. The local-only intent
+  (guidelines §1.3) is unchanged; only the config knob differs from the original spec text.
 - Adds `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`
   (modern successor to the kept `X-Frame-Options: DENY`) — no runtime impact on this app.
 - **`script-src` keeps `'unsafe-inline'`, documented in an adjacent comment** (decision A):
