@@ -45,7 +45,7 @@ counting practice on rules taken from official gaming-commission documents, not 
   cancellable) drawn as a percentile fan chart; optionally let the advisor coach your bet size
   between rounds at the table
 - **Bot companions** — five personas with strategy leaks you can measure on the analysis page
-- **Bulletproof persistence** — a mid-round refresh restores the exact table, count included
+- **Bulletproof persistence** — refresh anywhere: mid-round restores the exact table, between rounds the same shoe and count
 - **Four side bets with official pay tables** — 21+3, Lucky Ladies, Match the Dealer, Buster
 - **Engine verified by simulation** — 200k seeded rounds converge on the computed house edge
 
@@ -199,4 +199,4 @@ felt.** The Learn page's rules lab lets you toggle any rule and watch the house 
 
 Part of the **Metaincognita** simulator family: Hold'em, Video Poker, Flameout, Craps,
 Pachinko, Slots. Suite-wide standards live in
-[`docs/METAINCOGNITA-GUIDELINES-v1.0.md`](docs/METAINCOGNITA-GUIDELINES-v1.0.md).
+[`docs/METAINCOGNITA-GUIDELINES-v1.1.md`](docs/METAINCOGNITA-GUIDELINES-v1.1.md).

@@ -18,6 +18,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   strictly below the index; Fab-4 15vT reversal uses its published index 0
 - Mid-round rack reshuffles (MA §15(g)) now emit a shuffle event, so the running count resets
   instead of double-counting recycled discards
+- Authentic hole-card procedure: a hole the round never forced face-up is mucked unseen —
+  not revealed, not counted (real US procedure; previously every cleanup exposed and counted
+  it, inflating the trained count ~1 round in 6 heads-up and biasing the Bet Lab's TC
+  distribution). A "Hole" table toggle (lifetime, off by default) restores show-and-count as
+  a study aid. A deferred Lucky Ladies wager still forces the natural check (MA §24(f))
+- Between-rounds persistence: settlement now writes a shoe+count checkpoint, so a refresh at
+  the betting screen restores the same shoe and running count (previously: silent fresh shoe
+  and a zeroed count — the README's "count included" claim was only true mid-decision); a
+  refresh during the opening deal rewinds cleanly to the round start on the same shoe
 
 ### Fixed (engine rules)
 - No-peek games implement the documented full-loss model correctly end to end: blackjacks are
@@ -50,6 +59,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   fallback, and cancels an in-flight run on preset switch
 - Ramp simulations size bets off a fresh shoe when the cut card is out, never let the sim
   player double/split money it doesn't have, and record a dead bankroll's true residue
+- Lifetime training data is backed up to `blackjack-training-v1.bak` before any discard
+  (unknown version or corrupt payload), and a version-migration seam ensures a future
+  schema bump maps old data forward instead of destroying it
 
 ### Accessibility
 - Face-down cards no longer carry their identity in the DOM (the hole card was readable by
@@ -59,6 +71,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   table toggles; ChipStack is a named image; the active split hand announces itself
 - Muted informative text raised to the family contrast floor; the felt rule line passes AA
 - New axe (WCAG 2.1 A/AA) Playwright scans over every user route
+- All six drills announce their verdict through a persistent `role="status"` region and move
+  focus to Next/Again (previously: the answer button unmounted, focus fell to `<body>`, and
+  screen readers heard nothing — WCAG 4.1.3)
+- The settled round's WIN/LOSE headline announces through its own live region; milestone
+  flair lines can no longer overwrite it in the same tick
 
 ### Added (delivery infrastructure)
 - GitHub Actions CI: lint, typecheck, unit/nuxt suites, production build, and the full
