@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { nextTick } from 'vue'
 import StrategyFlash from '../../app/components/drills/StrategyFlash.vue'
 import DeviationQuiz from '../../app/components/drills/DeviationQuiz.vue'
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
@@ -49,6 +50,23 @@ describe('StrategyFlash', () => {
     await w.vm.$nextTick()
     expect(w.find('[data-testid="flash-verdict"]').text()).toContain('Too slow')
     vi.useRealTimers()
+  })
+
+  it('announces the verdict in a live region and moves focus to Next', async () => {
+    // attachTo: document.body — document.activeElement only reflects real focus moves for
+    // elements connected to the document; mountSuspended's default container is detached.
+    const w = await mountSuspended(StrategyFlash, { props: { rng: mulberry32(42) }, attachTo: document.body })
+    const sr = w.find('[data-testid="flash-sr"]')
+    expect(sr.attributes('role')).toBe('status')
+    expect(sr.text()).toBe('')
+    await w.find('button[data-testid^="flash-"]').trigger('click')
+    await nextTick()
+    expect(w.find('[data-testid="flash-sr"]').text()).toMatch(/book play|Book:/)
+    await nextTick() // announce() focuses on the tick after the text lands
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('flash-next')
+    await w.find('[data-testid="flash-next"]').trigger('click')
+    expect(w.find('[data-testid="flash-sr"]').text()).toBe('')
+    w.unmount()
   })
 })
 

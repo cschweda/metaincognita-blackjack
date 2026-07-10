@@ -17,6 +17,11 @@ const phase = ref<'play' | 'verdict'>('play')
 const picked = ref(0)
 const correct = ref(false)
 const { streak, best, grade } = useDrillStreak('pair-cancel')
+const { srText, focusEl, announce, clear } = useDrillFeedback()
+
+const verdictHeadline = computed(() => correct.value
+  ? `✓ net ${net.value > 0 ? '+' : ''}${net.value}`
+  : `✗ you said ${picked.value > 0 ? '+' : ''}${picked.value} — net is ${net.value > 0 ? '+' : ''}${net.value}`)
 
 function tagText(card: Card): string {
   const t = hiLoValue(card)
@@ -45,6 +50,7 @@ const explanation = computed(() => {
 })
 
 function nextPair(): void {
+  clear()
   if (deck.value.length < 2) deck.value = shuffle(buildDeck(), props.rng)
   pair.value = deck.value.splice(0, 2)
   phase.value = 'play'
@@ -55,6 +61,7 @@ function answer(value: number): void {
   correct.value = value === net.value
   grade(correct.value)
   phase.value = 'verdict'
+  announce(`${verdictHeadline.value}. ${explanation.value}`)
 }
 
 nextPair()
@@ -62,6 +69,13 @@ nextPair()
 
 <template>
   <div class="space-y-3">
+    <p
+      class="sr-only"
+      role="status"
+      data-testid="pair-sr"
+    >
+      {{ srText }}
+    </p>
     <DrillScoreHeader
       :streak="streak"
       :best="best"
@@ -109,12 +123,13 @@ nextPair()
         class="text-sm font-semibold"
         :class="correct ? 'text-emerald-400' : 'text-red-400'"
       >
-        {{ correct ? `✓ net ${net > 0 ? '+' : ''}${net}` : `✗ you said ${picked > 0 ? '+' : ''}${picked} — net is ${net > 0 ? '+' : ''}${net}` }}
+        {{ verdictHeadline }}
       </p>
       <p class="text-xs text-neutral-400">
         {{ explanation }}
       </p>
       <UButton
+        ref="focusEl"
         color="primary"
         size="sm"
         data-testid="pair-next"

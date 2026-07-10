@@ -71,6 +71,15 @@ const situation = ref<Situation>(randomSituation())
 /** chosen === null → timed out */
 const verdict = ref<{ chosen: Action | null, correct: boolean, book: Action } | null>(null)
 const { streak, grade } = useDrillStreak('strategy-flash')
+const { srText, focusEl, announce, clear } = useDrillFeedback()
+
+const verdictMessage = computed(() => {
+  const v = verdict.value
+  if (!v) return ''
+  if (v.correct) return `✓ ${ACTION_LABEL[v.chosen!]} is the book play`
+  if (v.chosen === null) return `⏱ Too slow — book: ${ACTION_LABEL[v.book]}`
+  return `✗ Book: ${ACTION_LABEL[v.book]}`
+})
 
 // timed mode (spec §6: "timed, streak") — 10s per situation, toggleable
 const TIME_LIMIT_MS = 10_000
@@ -93,6 +102,7 @@ function startClock(): void {
       stopClock()
       verdict.value = { chosen: null, correct: false, book: bookAction.value }
       grade(false)
+      announce(verdictMessage.value)
     }
   }, 250)
 }
@@ -121,9 +131,11 @@ function answer(action: Action): void {
   const correct = action === bookAction.value
   verdict.value = { chosen: action, correct, book: bookAction.value }
   grade(correct)
+  announce(verdictMessage.value)
 }
 
 function next(): void {
+  clear()
   verdict.value = null
   situation.value = randomSituation()
   startClock()
@@ -136,6 +148,13 @@ const ACTION_LABEL: Record<Action, string> = {
 
 <template>
   <div class="space-y-3">
+    <p
+      class="sr-only"
+      role="status"
+      data-testid="flash-sr"
+    >
+      {{ srText }}
+    </p>
     <div class="flex items-center justify-between gap-3 text-xs text-neutral-400">
       <span>Streak: <span class="font-mono font-bold text-[var(--accent-gold)]">{{ streak }}</span></span>
       <span
@@ -206,13 +225,10 @@ const ACTION_LABEL: Record<Action, string> = {
         class="text-sm font-semibold"
         :class="verdict.correct ? 'text-emerald-400' : 'text-red-400'"
       >
-        {{ verdict.correct
-          ? `✓ ${ACTION_LABEL[verdict.chosen!]} is the book play`
-          : verdict.chosen === null
-            ? `⏱ Too slow — book: ${ACTION_LABEL[verdict.book]}`
-            : `✗ Book: ${ACTION_LABEL[verdict.book]}` }}
+        {{ verdictMessage }}
       </p>
       <UButton
+        ref="focusEl"
         class="mt-2"
         color="neutral"
         variant="soft"

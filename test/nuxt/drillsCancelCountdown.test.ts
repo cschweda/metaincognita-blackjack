@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { nextTick } from 'vue'
 import PairCancel from '../../app/components/drills/PairCancel.vue'
 import DeckCountdown from '../../app/components/drills/DeckCountdown.vue'
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
@@ -67,6 +68,21 @@ describe('PairCancel', () => {
     }
     await w.find('[data-testid="pair-btn-0"]').trigger('click')
     expect(w.find('[data-testid="pair-verdict"]').text().toLowerCase()).toContain('cancel')
+  })
+
+  it('announces the pair verdict and moves focus to Next pair', async () => {
+    // attachTo: document.body — document.activeElement only reflects real focus moves for
+    // elements connected to the document; mountSuspended's default container is detached.
+    const w = await mountSuspended(PairCancel, { props: { rng: mulberry32(5) }, attachTo: document.body })
+    expect(w.find('[data-testid="pair-sr"]').attributes('role')).toBe('status')
+    await w.find('[data-testid="pair-btn-0"]').trigger('click')
+    await nextTick()
+    expect(w.find('[data-testid="pair-sr"]').text()).toMatch(/net/)
+    await nextTick() // announce() focuses on the tick after the text lands
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('pair-next')
+    await w.find('[data-testid="pair-next"]').trigger('click')
+    expect(w.find('[data-testid="pair-sr"]').text()).toBe('')
+    w.unmount()
   })
 })
 
