@@ -84,6 +84,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   TS logic layers with a ≥90% floor on the engine
 - New e2e specs: double, late surrender, casino-paced round, Bet Lab worker simulation
   (the only place the real worker protocol runs), and the axe scans — 15 e2e tests total
+- Coverage floors are enforced in CI (`pnpm test:coverage` in the quality job, report
+  artifact on failure): engine keeps its 90% floor with a per-file floor on `bots.ts` so the
+  aggregate can never mask it, and composables/stores/workers gain measured floors; the
+  persona decision branches, the ruin-sim worker protocol, and the counting restore/reset
+  paths are now unit-tested
+- Netlify hardening: HSTS, Permissions-Policy, immutable caching for hashed assets,
+  must-revalidate for the app shell; CSP drops the unused `fonts.gstatic.com` and — with
+  @nuxt/icon's runtime provider disabled entirely (`provider: 'none'` — every icon ships in
+  the client bundle, the two @nuxt/ui internals via a measured allow-list; local-only per the
+  family guidelines) — `api.iconify.design`, and gains `object-src 'none'`, `base-uri 'self'`,
+  `form-action 'self'`, `frame-ancestors 'none'`; deploys build only (CI is the test gate)
 
 ### Changed
 - One shared money formatter (`formatCents`/`signedCents`) replaces seven local variants;
