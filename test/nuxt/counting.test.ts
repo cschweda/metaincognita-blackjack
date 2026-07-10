@@ -111,3 +111,32 @@ describe('useCounting', () => {
     expect(counting.lastCheck.value).toBeNull()
   })
 })
+
+describe('restore and reset', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    __resetCountingForTests()
+  })
+
+  it('restoreCounting backfills zeros when nothing was persisted', () => {
+    const store = useBlackjackStore()
+    store.setCountState(null)
+    restoreCounting()
+    const counting = useCounting()
+    expect(counting.rc.value).toBe(0)
+    expect(counting.cardsSeen.value).toBe(0)
+  })
+
+  it('restoreCounting picks up persisted state; resetCounting clears it in the store', () => {
+    const store = useBlackjackStore()
+    store.setCountState({ running: 5, cardsSeen: 30 })
+    restoreCounting()
+    const counting = useCounting()
+    expect(counting.rc.value).toBe(5)
+    expect(counting.cardsSeen.value).toBe(30)
+    resetCounting()
+    expect(counting.rc.value).toBe(0)
+    expect(store.countState).toBeNull()
+  })
+})
