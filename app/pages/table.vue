@@ -244,6 +244,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           </UButton>
           <UButton
             size="xs"
+            :variant="store.training.exposeMuckedHole ? 'solid' : 'outline'"
+            color="neutral"
+            icon="i-lucide-eye"
+            :aria-pressed="store.training.exposeMuckedHole"
+            aria-label="Expose the mucked hole card at cleanup"
+            title="Real tables muck an unseen hole face-down — turn on to see and count it as a study aid"
+            data-testid="hole-toggle"
+            @click="loop.setExposeMuckedHole(!store.training.exposeMuckedHole)"
+          >
+            Hole
+          </UButton>
+          <UButton
+            size="xs"
             :variant="studyMode ? 'solid' : 'outline'"
             color="neutral"
             icon="i-lucide-graduation-cap"

@@ -436,6 +436,7 @@ function snapshotToStore(): void {
 function attach(g: BlackjackGame): void {
   unsubscribe?.()
   game = g
+  g.exposeHoleAtCleanup = useBlackjackStore().training.exposeMuckedHole
   gameGen.value++
   unsubscribe = g.on((e) => {
     eventQueue.push(e)
@@ -696,9 +697,14 @@ export function useGameLoop() {
     resetCounting()
   }
 
+  function setExposeMuckedHole(enabled: boolean): void {
+    store.setExposeMuckedHole(enabled)
+    if (game) game.exposeHoleAtCleanup = enabled
+  }
+
   return {
     phase, dealerRow, spotsView, announcements, liveText, queueIdle, trayFill,
     canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision,
-    startSession, restoreSession, beginRound, act, heroInsurance, endSession
+    startSession, restoreSession, beginRound, act, heroInsurance, endSession, setExposeMuckedHole
   }
 }

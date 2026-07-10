@@ -279,6 +279,60 @@ describe('useGameLoop (quick mode)', () => {
     expect(loop.phase.value).toBe('complete')
   }
 
+  function playHitOnlyRound(loop: ReturnType<typeof useGameLoop>): void {
+    loop.beginRound(1000, {})
+    if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+    let guard = 0
+    while (loop.phase.value === 'playerTurns' && guard++ < 12) {
+      loop.act(loop.legalActions.value.includes('hit') ? 'hit' : 'stand')
+    }
+    expect(loop.phase.value).toBe('complete')
+  }
+
+  /** First seed whose hit-only first round ends with the dealer never drawing (hero busts,
+   *  no dealer play needed) — the muck case. */
+  function findBustSeed(): number {
+    for (let s = 1; s < 80; s++) {
+      freshHarness()
+      const probe = useGameLoop()
+      probe.startSession(settings({ count: 'shown' }), 100_000, s)
+      playHitOnlyRound(probe)
+      const rec = useBlackjackStore().history[0]!
+      const hero = rec.spots.find(x => x.occupant === 'hero')!
+      if (rec.dealer.cards.length === 2 && hero.hands.every(h => h.outcome === 'lose')) return s
+    }
+    throw new Error('no bust seed found under 80')
+  }
+
+  it('does not count or reveal a mucked hole (authentic default)', () => {
+    const seed = findBustSeed()
+    freshHarness()
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, seed)
+    playHitOnlyRound(loop)
+    expect(loop.dealerRow.value[1]!.faceUp).toBe(false) // hole stays down through cleanup
+    const rec = store.history[0]!
+    const heroCards = rec.spots.find(x => x.occupant === 'hero')!.hands[0]!.cards.length
+    // counted: dealer up + every hero card — never the hole
+    expect(store.countState!.cardsSeen).toBe(1 + heroCards)
+    expect(rec.visibleCards).toHaveLength(1 + heroCards)
+  })
+
+  it('setExposeMuckedHole(true) exposes and counts the hole at cleanup', () => {
+    const seed = findBustSeed()
+    freshHarness()
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, seed)
+    loop.setExposeMuckedHole(true)
+    playHitOnlyRound(loop)
+    expect(store.training.exposeMuckedHole).toBe(true)
+    expect(loop.dealerRow.value[1]!.faceUp).toBe(true)
+    const heroCards = store.history[0]!.spots.find(x => x.occupant === 'hero')!.hands[0]!.cards.length
+    expect(store.countState!.cardsSeen).toBe(2 + heroCards) // up + hole + hero cards
+  })
+
   it('round numbering continues after a refresh instead of restarting at 1', () => {
     const store = useBlackjackStore()
     const loop = useGameLoop()
