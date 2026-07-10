@@ -85,6 +85,36 @@ describe('table page integration (quick mode, seeded)', () => {
     expect(page.find('[data-testid="study-hotspot-shoe"]').exists()).toBe(true)
   })
 
+  it('hole toggle exposes the mucked hole card', async () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    loop.startSession({
+      rules, mode: 'quick', speed: 'normal', flair: false, botIds: [],
+      advisor: 'feedback', count: 'off', advancedDeviations: false
+    }, 100_000, 5)
+    const page = await mountSuspended(TablePage)
+
+    // Initially aria-pressed should be "false"
+    const holeToggle = page.find('[data-testid="hole-toggle"]')
+    expect(holeToggle.exists()).toBe(true)
+    expect(holeToggle.attributes('aria-pressed')).toBe('false')
+    expect(store.training.exposeMuckedHole).toBe(false)
+
+    // Click to enable
+    await holeToggle.trigger('click')
+    await page.vm.$nextTick()
+    expect(store.training.exposeMuckedHole).toBe(true)
+    expect(page.find('[data-testid="hole-toggle"]').attributes('aria-pressed')).toBe('true')
+
+    // Click to disable
+    await holeToggle.trigger('click')
+    await page.vm.$nextTick()
+    expect(store.training.exposeMuckedHole).toBe(false)
+    expect(page.find('[data-testid="hole-toggle"]').attributes('aria-pressed')).toBe('false')
+  })
+
   it('shows the round-outcome banner and advisor recap after settlement', async () => {
     const loop = useGameLoop()
     const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
