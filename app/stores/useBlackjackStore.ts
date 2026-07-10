@@ -74,6 +74,8 @@ export interface TrainingStats {
   betHintsEnabled: boolean
   /** WCAG 2.1.4: single-character table shortcuts (H/S/D/P/R, B, C, Space) can be turned off. */
   keyboardShortcuts: boolean
+  /** Training aid: expose (and count) the mucked hole at cleanup — off = real procedure. */
+  exposeMuckedHole: boolean
 }
 
 export interface RoundRecord {
@@ -136,7 +138,8 @@ function freshTraining(): TrainingStats {
     drillTimes: {},
     betRamp: null,
     betHintsEnabled: false,
-    keyboardShortcuts: true
+    keyboardShortcuts: true,
+    exposeMuckedHole: false
   }
 }
 
@@ -192,7 +195,8 @@ export const useBlackjackStore = defineStore('blackjack', () => {
           ? data.betRamp as BetRamp
           : null,
         betHintsEnabled: data.betHintsEnabled === true,
-        keyboardShortcuts: data.keyboardShortcuts !== false
+        keyboardShortcuts: data.keyboardShortcuts !== false,
+        exposeMuckedHole: data.exposeMuckedHole === true
       }
     } catch {
       return freshTraining()
@@ -261,6 +265,11 @@ export const useBlackjackStore = defineStore('blackjack', () => {
 
   function setKeyboardShortcuts(enabled: boolean): void {
     training.value.keyboardShortcuts = enabled
+    persistTraining()
+  }
+
+  function setExposeMuckedHole(enabled: boolean): void {
+    training.value.exposeMuckedHole = enabled
     persistTraining()
   }
 
@@ -409,6 +418,6 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     initSession, applyNet, recordRound, saveSnapshot, persist, restore, clearAll,
     setCountState, setRoundTrail, advanceBotState,
     recordDecision, recordInsuranceDecision, recordCountCheck, recordDrillBest,
-    recordDrillTime, setBetRamp, setKeyboardShortcuts
+    recordDrillTime, setBetRamp, setKeyboardShortcuts, setExposeMuckedHole
   }
 })

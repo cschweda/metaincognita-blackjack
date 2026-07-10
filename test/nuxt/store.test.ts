@@ -204,6 +204,22 @@ describe('useBlackjackStore — drill times and bet ramp', () => {
     expect(old.training.betHintsEnabled).toBe(false)
     expect(old.training.drillTimes).toEqual({})
   })
+
+  it('persists exposeMuckedHole lifetime and backfills old payloads to false', () => {
+    const store = useBlackjackStore()
+    expect(store.training.exposeMuckedHole).toBe(false)
+    store.setExposeMuckedHole(true)
+
+    setActivePinia(createPinia())
+    const fresh = useBlackjackStore()
+    expect(fresh.training.exposeMuckedHole).toBe(true)
+
+    const raw = JSON.parse(localStorage.getItem(TRAINING_KEY)!)
+    delete raw.exposeMuckedHole
+    localStorage.setItem(TRAINING_KEY, JSON.stringify(raw))
+    setActivePinia(createPinia())
+    expect(useBlackjackStore().training.exposeMuckedHole).toBe(false)
+  })
 })
 
 describe('useBlackjackStore — persistence hardening', () => {
