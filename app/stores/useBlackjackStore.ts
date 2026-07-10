@@ -143,6 +143,22 @@ function freshTraining(): TrainingStats {
   }
 }
 
+/** Version-mismatch seam: map an older payload forward, or return null when unknown
+ *  (→ backup + fresh). A future TRAINING_VERSION bump adds its `case` here so a bump
+ *  can never silently destroy lifetime stats. */
+function migrateTraining(data: { version?: number } & Partial<TrainingStats>): TrainingStats | null {
+  switch (data.version) {
+    default:
+      return null
+  }
+}
+
+function backupTraining(raw: string): void {
+  try {
+    localStorage.setItem(`${TRAINING_KEY}.bak`, raw)
+  } catch { /* backup is best-effort */ }
+}
+
 // One window listener regardless of how many pinia instances tests create.
 let crossTabListener: ((e: StorageEvent) => void) | null = null
 
@@ -173,11 +189,17 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     sessionActive.value && settings.value !== null && bankroll.value < settings.value.rules.minBet)
 
   function loadTraining(): TrainingStats {
+    let raw: string | null = null
     try {
-      const raw = localStorage.getItem(TRAINING_KEY)
+      raw = localStorage.getItem(TRAINING_KEY)
       if (!raw) return freshTraining()
       const data = JSON.parse(raw) as { version?: number } & Partial<TrainingStats>
-      if (data.version !== TRAINING_VERSION) return freshTraining()
+      if (data.version !== TRAINING_VERSION) {
+        const migrated = migrateTraining(data)
+        if (migrated) return migrated
+        backupTraining(raw)
+        return freshTraining()
+      }
       const base = freshTraining()
       return {
         adherence: { ...base.adherence, ...(data.adherence ?? {}) },
@@ -199,6 +221,7 @@ export const useBlackjackStore = defineStore('blackjack', () => {
         exposeMuckedHole: data.exposeMuckedHole === true
       }
     } catch {
+      if (raw) backupTraining(raw)
       return freshTraining()
     }
   }

@@ -251,6 +251,20 @@ describe('useBlackjackStore — persistence hardening', () => {
     expect(localStorage.getItem(`${STORAGE_KEY}.bak`)).toContain('999')
   })
 
+  it('stashes a training backup before discarding an unknown-version payload', () => {
+    localStorage.setItem(TRAINING_KEY, JSON.stringify({ version: 999, drillBests: { 'strategy-flash': 9 } }))
+    const store = useBlackjackStore()
+    expect(store.training.drillBests['strategy-flash']).toBeUndefined() // fresh
+    expect(localStorage.getItem(`${TRAINING_KEY}.bak`)).toContain('999')
+  })
+
+  it('stashes a training backup before discarding a corrupt payload', () => {
+    localStorage.setItem(TRAINING_KEY, '{not json')
+    const store = useBlackjackStore()
+    expect(store.training.countChecks).toEqual([])
+    expect(localStorage.getItem(`${TRAINING_KEY}.bak`)).toBe('{not json')
+  })
+
   it('advanceBotState moves bot bet progression through a store action', () => {
     const store = started()
     store.advanceBotState('bea', 'win', 2000)
