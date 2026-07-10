@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PERSONAS, decideFor } from '../../../app/utils/engine/bots'
-import { PRESETS } from '../../../app/utils/engine/rules'
+import { PRESETS, cloneRules } from '../../../app/utils/engine/rules'
 import { newHand } from '../../../app/utils/engine/hand'
 import { mulberry32 } from '../../../app/utils/engine/rng'
 import type { Card, Suit } from '../../../app/utils/engine/cards'
@@ -53,6 +53,39 @@ describe('decideFor', () => {
     const bea = PERSONAS.find(p => p.id === 'bea')!
     expect(bea.takesInsurance).toBe(false)
   })
+
+  it('falls back by EV when the book action is unavailable (3-card 11 cannot double)', () => {
+    // book says double 11 v 6, but double is two-cards-only — bookAction's fallback picks hit (EV)
+    expect(decideFor('bea', newHand([c(2), c(4), c(5)], 1000), 1, up6, RULES)).toBe('hit')
+  })
+
+  it('returns the lone legal action without consulting strategy (21: stand only)', () => {
+    expect(decideFor('bea', newHand([c(10), c(5), c(6)], 1000), 1, up9, RULES)).toBe('stand')
+  })
+
+  it('Ivan dispatches to book play through decideFor (16 v 9 hits)', () => {
+    expect(decideFor('ivan', newHand([c(10), c(6)], 1000), 1, up9, RULES)).toBe('hit')
+  })
+
+  it('Lou plays book off the 16 guard (11 v 6 doubles) including soft 16 (A,5 hits v 9)', () => {
+    expect(decideFor('lou', newHand([c(6), c(5)], 1000), 1, up6, RULES)).toBe('double')
+    expect(decideFor('lou', newHand([c(14), c(5)], 1000), 1, up9, RULES)).not.toBe('stand') // soft 16 is not "a 16" to Lou
+  })
+
+  it('Lou hits instead of surrendering ("surrender is for cowards")', () => {
+    const ls = cloneRules(PRESETS.MA_205CMR!) // late surrender legal; book surrenders 15 v T
+    ls.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    expect(decideFor('bea', newHand([c(9), c(6)], 1000), 1, c(10, 'hearts'), ls)).toBe('surrender') // control: book really surrenders
+    expect(decideFor('lou', newHand([c(9), c(6)], 1000), 1, c(10, 'hearts'), ls)).toBe('hit')
+  })
+
+  it('falls back by EV when the pair consultation recommends an illegal double (5,5 from split, no DAS)', () => {
+    const noDas = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    noDas.doubleAfterSplit = false
+    noDas.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    const hand = newHand([c(5), c(5, 'hearts')], 1000, { fromSplit: true })
+    expect(decideFor('bea', hand, 2, up6, noDas)).toBe('hit')
+  })
 })
 
 describe('bet progression', () => {
@@ -69,5 +102,21 @@ describe('bet progression', () => {
   it('flat bettors return the base bet', () => {
     const bea = PERSONAS.find(p => p.id === 'bea')!
     expect(bea.nextBet(1000, 'win', RULES, mulberry32(1))).toBe(1000)
+  })
+
+  it('every flat bettor returns the base bet (nancy, mike, ivan)', () => {
+    for (const id of ['nancy', 'mike', 'ivan'] as const) {
+      const p = PERSONAS.find(x => x.id === id)!
+      expect(p.nextBet(1500, 'lose', RULES, mulberry32(1))).toBe(1500)
+    }
+  })
+
+  it('Lou holds on a push, takes the lucky surcharge, and clamps to table limits', () => {
+    const lou = PERSONAS.find(p => p.id === 'lou')!
+    // deterministic rng stubs: below/above the 0.15 surcharge threshold
+    expect(lou.nextBet(1000, 'push', RULES, () => 0.9)).toBe(1000) // no press, no surcharge
+    expect(lou.nextBet(1000, 'push', RULES, () => 0.1)).toBe(1500) // +500 surcharge
+    expect(lou.nextBet(RULES.maxBet, 'win', RULES, () => 0.9)).toBe(RULES.maxBet) // press clamps to max
+    expect(lou.nextBet(RULES.minBet, 'lose', RULES, () => 0.9)).toBe(RULES.minBet) // retreat clamps to min
   })
 })

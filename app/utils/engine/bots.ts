@@ -135,5 +135,9 @@ export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, deal
       return book === 'surrender' ? 'hit' : book // surrender is for cowards
     }
   }
+  /* v8 ignore start -- unreachable: the switch above is exhaustive over PersonaId.
+     (The start/stop form is required: esbuild strips comments before the AST hint
+     parser runs, but start/stop regions are matched against the original source.) */
   return 'stand'
+  /* v8 ignore stop */
 }
