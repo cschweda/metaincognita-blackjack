@@ -6,6 +6,7 @@ import { displayCard } from '../../app/utils/engine/cards'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
 import type { SessionSettings } from '../../app/stores/useBlackjackStore'
 import { __resetCountingForTests } from '../../app/composables/useCounting'
+import { summarizeRound } from '../../app/utils/advisor'
 
 function settings(overrides: Partial<SessionSettings> = {}): SessionSettings {
   const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
@@ -481,5 +482,18 @@ describe('useGameLoop (quick mode)', () => {
     expect(store.countState).toEqual(countAfterRound1)
     expect(loop2.phase.value).toBe('complete')
     expect(loop2.queueIdle.value).toBe(true)
+  })
+
+  it('announces the round outcome in its own live region, immune to flair overwrites', () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ flair: true }), 100_000, 7)
+    playFullRound(loop)
+    const headline = summarizeRound(store.history[0]!)!.headline
+    expect(loop.outcomeLive.value).toBe(headline)
+    // the visible strip still carries the headline even when flair lines follow it
+    expect(loop.announcements.value.some(a => a.text === headline)).toBe(true)
+    loop.beginRound(1000, {})
+    expect(loop.outcomeLive.value).toBe('') // cleared so the next identical outcome re-announces
   })
 })

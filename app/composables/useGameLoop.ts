@@ -64,6 +64,9 @@ const dealerRow = ref<ShownCard[]>([])
 const spotsView = ref<SpotView[]>([])
 const announcements = ref<Announcement[]>([])
 const liveText = ref('')
+/** Settled-round headline for the dedicated outcome live region — flair lines flow through
+ *  liveText and can never overwrite this. */
+const outcomeLive = ref('')
 const queueIdle = ref(true)
 const trayFill = ref(0)
 /** Bumped whenever the module-level game is attached/detached — reactive bridge for computeds. */
@@ -109,6 +112,7 @@ export function __resetGameLoopForTests(): void {
   spotsView.value = []
   announcements.value = []
   liveText.value = ''
+  outcomeLive.value = ''
   queueIdle.value = true
   trayFill.value = 0
   milestones = freshMilestones(0)
@@ -239,10 +243,10 @@ function applyEvent(e: GameEvent): void {
   }
 }
 
-function pushAnnouncement(text: string): void {
+function pushAnnouncement(text: string, opts: { live?: boolean } = {}): void {
   announcements.value.push({ id: ++announceId, text })
   if (announcements.value.length > 4) announcements.value.shift()
-  liveText.value = text
+  if (opts.live !== false) liveText.value = text
 }
 
 function pickQuip(id: PersonaId, outcome: string): string {
@@ -382,9 +386,13 @@ function finalizeRound(): void {
     heroInsurance: insuranceThisRound
   }
   store.recordRound(record)
-  // the result reaches the aria-live region (and dealer line) before any flair lines
+  // the outcome speaks through its own live region (outcomeLive) so the flair lines below
+  // can never overwrite it; the visible dealer strip still shows the headline first
   const summary = summarizeRound(record)
-  if (summary) pushAnnouncement(summary.headline)
+  if (summary) {
+    pushAnnouncement(summary.headline, { live: false })
+    outcomeLive.value = summary.headline
+  }
   if (store.settings?.flair) {
     const heroNet = record.spots
       .filter(s => s.occupant === 'hero')
@@ -561,6 +569,7 @@ export function useGameLoop() {
     dealerRow.value = []
     spotsView.value = []
     announcements.value = []
+    outcomeLive.value = ''
     phase.value = game?.phase ?? 'betting'
     queueIdle.value = true
   }
@@ -600,6 +609,7 @@ export function useGameLoop() {
     visibleThisRound = []
     decisionsThisRound = []
     insuranceThisRound = null
+    outcomeLive.value = ''
     const bots = botSpotAssignments()
     const bets: SpotBet[] = []
     for (const { spotId, id } of bots) {
@@ -710,7 +720,7 @@ export function useGameLoop() {
   }
 
   return {
-    phase, dealerRow, spotsView, announcements, liveText, queueIdle, trayFill,
+    phase, dealerRow, spotsView, announcements, liveText, outcomeLive, queueIdle, trayFill,
     canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision,
     startSession, restoreSession, beginRound, act, heroInsurance, endSession, setExposeMuckedHole
   }

@@ -13,7 +13,7 @@ const loop = useGameLoop()
 const router = useRouter()
 
 const {
-  phase, dealerRow, spotsView, announcements, liveText, queueIdle,
+  phase, dealerRow, spotsView, announcements, liveText, outcomeLive, queueIdle,
   canAct, legalActions, heroSpotId, inPlay, hasGame, trayFill,
   heroTurn, lastDecision
 } = loop
@@ -216,6 +216,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           <CountPanel ref="countPanel" />
         </div>
       </div>
+      <p
+        class="sr-only"
+        role="status"
+        data-testid="outcome-live"
+      >
+        {{ outcomeLive }}
+      </p>
       <RoundOutcome :summary="roundSummary" />
       <StudyHotspots
         v-if="studyMode && rules"
