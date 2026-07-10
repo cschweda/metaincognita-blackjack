@@ -31,9 +31,15 @@ export default defineConfig({
       provider: 'v8',
       // the TS logic layers only — .vue rendering is exercised by the nuxt/e2e suites
       include: ['app/utils/**', 'app/composables/**', 'app/stores/**', 'app/workers/**'],
-      // the engine is the heart — hold it to a high floor
+      // floors are measured-reality minus a 2-point regression margin (spec §2) —
+      // raise coverage to move them, never lower them to dodge a red bar
       thresholds: {
-        'app/utils/engine/**': { statements: 90, branches: 85, functions: 90, lines: 90 }
+        'app/utils/engine/**': { statements: 90, branches: 85, functions: 90, lines: 90 },
+        // per-file: the engine aggregate must never mask the personas again
+        'app/utils/engine/bots.ts': { statements: 90, branches: 85, functions: 90, lines: 90 },
+        'app/composables/**': { statements: 86, branches: 71, functions: 88, lines: 91 },
+        'app/stores/**': { statements: 91, branches: 81, functions: 94, lines: 93 },
+        'app/workers/**': { statements: 95, branches: 95, functions: 95, lines: 95 }
       }
     }
   }
