@@ -43,6 +43,15 @@ const tier = computed(() => {
   return 'Verified. Now chase the 60-second bar.'
 })
 
+const { srText, focusEl, announce, clear } = useDrillFeedback()
+
+const verdictText = computed(() => {
+  if (phase.value !== 'verdict') return ''
+  return correct.value
+    ? `✓ count ${expected.value > 0 ? '+' : ''}${expected.value} — deck verified in ${fmt(elapsedMs.value)}`
+    : `✗ you said ${entered.value} — the count was ${expected.value > 0 ? '+' : ''}${expected.value}`
+})
+
 function start(): void {
   const cards = shuffle(buildDeck(), props.rng)
   hidden.value = cards[0]!
@@ -84,10 +93,12 @@ function submit(): void {
   correct.value = entered.value === expected.value
   if (correct.value) store.recordDrillTime('deck-countdown', elapsedMs.value)
   phase.value = 'verdict'
+  announce(`${verdictText.value}. The hidden card: ${hidden.value ? displayCard(hidden.value) : ''}.`)
 }
 
 function reset(): void {
   stopTicker()
+  clear()
   phase.value = 'idle'
 }
 
@@ -107,6 +118,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="space-y-3">
+    <p
+      class="sr-only"
+      role="status"
+      data-testid="countdown-sr"
+    >
+      {{ srText }}
+    </p>
     <div class="flex items-center justify-between text-xs text-neutral-400">
       <span>The classic benchmark: count down a full deck, fast.</span>
       <span>Best: <span class="font-mono">{{ bestMs !== undefined ? fmt(bestMs) : '—' }}</span></span>
@@ -208,9 +226,7 @@ onBeforeUnmount(() => {
         class="text-sm font-semibold"
         :class="correct ? 'text-emerald-400' : 'text-red-400'"
       >
-        {{ correct
-          ? `✓ count ${expected > 0 ? '+' : ''}${expected} — deck verified in ${fmt(elapsedMs)}`
-          : `✗ you said ${entered} — the count was ${expected > 0 ? '+' : ''}${expected}` }}
+        {{ verdictText }}
       </p>
       <div class="flex items-center justify-center gap-2 text-xs text-neutral-400">
         <span>The hidden card:</span>
@@ -229,9 +245,11 @@ onBeforeUnmount(() => {
         {{ tier }}
       </p>
       <UButton
+        ref="focusEl"
         color="neutral"
         variant="soft"
         size="sm"
+        data-testid="countdown-again"
         @click="reset"
       >
         Again

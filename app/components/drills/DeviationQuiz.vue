@@ -62,6 +62,7 @@ function makeQuestion(): Question {
 const question = ref<Question>(makeQuestion())
 const verdict = ref<{ correct: boolean, explanation: string } | null>(null)
 const { streak, best, grade } = useDrillStreak('deviation-quiz')
+const { srText, focusEl, announce, clear } = useDrillFeedback()
 
 const options = computed(() => {
   const devLabel = question.value.dev.play.replace('-', ' ')
@@ -81,9 +82,11 @@ function answer(id: 'deviate' | 'book'): void {
     explanation: `${q.dev.description} applies at ${threshold}; the count is ${q.tc.toFixed(0)} → ${q.active ? 'deviate' : 'stay with the book'}.`
   }
   grade(correct)
+  announce(`${correct ? '✓ Correct' : '✗ Not this time'}. ${verdict.value!.explanation}`)
 }
 
 function next(): void {
+  clear()
   verdict.value = null
   question.value = makeQuestion()
 }
@@ -91,6 +94,13 @@ function next(): void {
 
 <template>
   <div class="space-y-3">
+    <p
+      class="sr-only"
+      role="status"
+      data-testid="quiz-sr"
+    >
+      {{ srText }}
+    </p>
     <DrillScoreHeader
       :streak="streak"
       :best="best"
@@ -140,6 +150,7 @@ function next(): void {
         {{ verdict.explanation }}
       </p>
       <UButton
+        ref="focusEl"
         class="mt-2"
         color="neutral"
         variant="soft"

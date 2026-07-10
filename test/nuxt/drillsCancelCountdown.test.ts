@@ -146,4 +146,22 @@ describe('DeckCountdown', () => {
     expect(w.text()).toContain('4 / 51')
     vi.useRealTimers()
   })
+
+  it('announces the countdown verdict and moves focus to Again', async () => {
+    vi.useFakeTimers()
+    const w = await mountSuspended(DeckCountdown, { props: { rng: mulberry32(13) }, attachTo: document.body })
+    onTestFinished(() => w.unmount())
+    expect(w.find('[data-testid="countdown-sr"]').attributes('role')).toBe('status')
+    await w.find('[data-testid="countdown-start"]').trigger('click')
+    for (let i = 0; i < 51; i++) {
+      await w.find('[data-testid="countdown-advance"]').trigger('click')
+    }
+    await w.find('[data-testid="countdown-answer"]').setValue('0')
+    await w.find('[data-testid="countdown-submit"]').trigger('click')
+    await nextTick()
+    expect(w.find('[data-testid="countdown-sr"]').text()).toMatch(/count/)
+    await nextTick() // announce() focuses on the tick after the text lands
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('countdown-again')
+    vi.useRealTimers()
+  })
 })

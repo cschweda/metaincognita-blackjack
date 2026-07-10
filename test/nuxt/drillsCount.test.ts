@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { nextTick } from 'vue'
 import CountDrill from '../../app/components/drills/CountDrill.vue'
 import TrueCountDrill from '../../app/components/drills/TrueCountDrill.vue'
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
@@ -33,6 +34,23 @@ describe('CountDrill', () => {
     expect(store.training.countChecks).toHaveLength(1)
     vi.useRealTimers()
   })
+
+  it('announces the count verdict and moves focus to Again', async () => {
+    vi.useFakeTimers()
+    const w = await mountSuspended(CountDrill, { props: { rng: mulberry32(3) }, attachTo: document.body })
+    onTestFinished(() => w.unmount())
+    expect(w.find('[data-testid="count-sr"]').attributes('role')).toBe('status')
+    await w.find('[data-testid="count-start"]').trigger('click')
+    await vi.advanceTimersByTimeAsync(1100 * 21) // 20 singles + the terminal tick
+    await w.vm.$nextTick()
+    await w.find('[data-testid="count-answer"]').setValue('0')
+    await w.find('[data-testid="count-submit"]').trigger('click')
+    await nextTick()
+    expect(w.find('[data-testid="count-sr"]').text()).toMatch(/RC/)
+    await nextTick() // announce() focuses on the tick after the text lands
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('count-again')
+    vi.useRealTimers()
+  })
 })
 
 describe('TrueCountDrill', () => {
@@ -51,5 +69,17 @@ describe('TrueCountDrill', () => {
     await w.find('[data-testid="tc-answer"]').setValue(String(Math.round(actual * 2) / 2))
     await w.find('[data-testid="tc-submit"]').trigger('click')
     expect(w.find('[data-testid="tc-verdict"]').text()).toContain('✓')
+  })
+
+  it('announces the TC verdict and moves focus to Next', async () => {
+    const w = await mountSuspended(TrueCountDrill, { props: { rng: mulberry32(9) }, attachTo: document.body })
+    onTestFinished(() => w.unmount())
+    expect(w.find('[data-testid="tc-sr"]').attributes('role')).toBe('status')
+    await w.find('[data-testid="tc-answer"]').setValue('0')
+    await w.find('[data-testid="tc-submit"]').trigger('click')
+    await nextTick()
+    expect(w.find('[data-testid="tc-sr"]').text()).toContain('TC =')
+    await nextTick() // announce() focuses on the tick after the text lands
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('tc-next')
   })
 })

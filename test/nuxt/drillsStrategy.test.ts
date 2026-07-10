@@ -111,4 +111,15 @@ describe('DeviationQuiz', () => {
     }
     throw new Error('never rolled hard 13 vs dealer 2 in 200 questions')
   })
+
+  it('announces the quiz verdict and moves focus to Next', async () => {
+    const w = await mountSuspended(DeviationQuiz, { props: { rng: mulberry32(7) }, attachTo: document.body })
+    onTestFinished(() => w.unmount())
+    expect(w.find('[data-testid="quiz-sr"]').attributes('role')).toBe('status')
+    await w.find('[data-testid="quiz-deviate"]').trigger('click')
+    await nextTick()
+    expect(w.find('[data-testid="quiz-sr"]').text()).toContain('applies at')
+    await nextTick() // announce() focuses on the tick after the text lands
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('quiz-next')
+  })
 })

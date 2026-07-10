@@ -20,6 +20,11 @@ const question = ref<Question>(makeQuestion())
 const entered = ref<number | null>(null)
 const verdict = ref<{ correct: boolean, actual: number } | null>(null)
 const { streak, best, grade } = useDrillStreak('true-count')
+const { srText, focusEl, announce, clear } = useDrillFeedback()
+
+const verdictText = computed(() => verdict.value
+  ? `${verdict.value.correct ? '✓' : '✗'} TC = ${question.value.rc} ÷ ${question.value.decksRemaining} = ${verdict.value.actual.toFixed(1)}`
+  : '')
 
 const trayPct = computed(() =>
   Math.round(((question.value.decksTotal - question.value.decksRemaining) / question.value.decksTotal) * 100))
@@ -30,9 +35,11 @@ function submit(): void {
   const correct = Math.abs(entered.value - actual) <= 0.5
   verdict.value = { correct, actual }
   grade(correct)
+  announce(verdictText.value)
 }
 
 function next(): void {
+  clear()
   question.value = makeQuestion()
   entered.value = null
   verdict.value = null
@@ -41,6 +48,13 @@ function next(): void {
 
 <template>
   <div class="space-y-3">
+    <p
+      class="sr-only"
+      role="status"
+      data-testid="tc-sr"
+    >
+      {{ srText }}
+    </p>
     <DrillScoreHeader
       :streak="streak"
       :best="best"
@@ -106,9 +120,10 @@ function next(): void {
         class="text-sm font-semibold"
         :class="verdict.correct ? 'text-emerald-400' : 'text-red-400'"
       >
-        {{ verdict.correct ? '✓' : '✗' }} TC = {{ question.rc }} ÷ {{ question.decksRemaining }} = {{ verdict.actual.toFixed(1) }}
+        {{ verdictText }}
       </p>
       <UButton
+        ref="focusEl"
         class="mt-2"
         color="neutral"
         variant="soft"

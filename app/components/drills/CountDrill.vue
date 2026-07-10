@@ -30,7 +30,12 @@ const actual = ref(0)
 const entered = ref<number | null>(null)
 const correct = ref(false)
 const { streak, best, grade } = useDrillStreak(() => `count-${level.value.id}`)
+const { srText, focusEl, announce, clear } = useDrillFeedback()
 let timer: ReturnType<typeof setInterval> | null = null
+
+const verdictText = computed(() => phase.value === 'result'
+  ? (correct.value ? `✓ RC ${actual.value}` : `✗ you said ${entered.value} — RC was ${actual.value}`)
+  : '')
 
 const reducedMotion = typeof window !== 'undefined'
   && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -75,10 +80,12 @@ function submit(): void {
   store.recordCountCheck(entered.value, actual.value)
   grade(correct.value)
   phase.value = 'result'
+  announce(verdictText.value)
 }
 
 function reset(): void {
   stopTimer()
+  clear()
   phase.value = 'idle'
 }
 
@@ -87,6 +94,13 @@ onBeforeUnmount(stopTimer)
 
 <template>
   <div class="space-y-3">
+    <p
+      class="sr-only"
+      role="status"
+      data-testid="count-sr"
+    >
+      {{ srText }}
+    </p>
     <div class="flex items-center justify-between text-xs text-neutral-400">
       <span>Streak: <span class="font-mono font-bold text-[var(--accent-gold)]">{{ streak }}</span></span>
       <span>Best ({{ level.label }}): <span class="font-mono">{{ best }}</span></span>
@@ -186,13 +200,15 @@ onBeforeUnmount(stopTimer)
         class="text-sm font-semibold"
         :class="correct ? 'text-emerald-400' : 'text-red-400'"
       >
-        {{ correct ? `✓ RC ${actual}` : `✗ you said ${entered} — RC was ${actual}` }}
+        {{ verdictText }}
       </p>
       <UButton
+        ref="focusEl"
         class="mt-2"
         color="neutral"
         variant="soft"
         size="sm"
+        data-testid="count-again"
         @click="reset"
       >
         Again
