@@ -55,7 +55,7 @@ describe('decideFor', () => {
   })
 
   it('falls back by EV when the book action is unavailable (3-card 11 cannot double)', () => {
-    // book says double 11 v 6, but double is two-cards-only — bookAction's fallback picks hit (EV)
+    // book table returns hit for 11 when not two cards — covers the twoCards:false arm at bots.ts:30; the "5,5 from split, no DAS" test below covers the line-33 EV fallback
     expect(decideFor('bea', newHand([c(2), c(4), c(5)], 1000), 1, up6, RULES)).toBe('hit')
   })
 

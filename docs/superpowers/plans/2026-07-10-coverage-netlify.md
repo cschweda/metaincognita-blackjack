@@ -504,7 +504,8 @@ Under `## [Unreleased]`, in the existing `### Added (delivery infrastructure)` s
   paths are now unit-tested
 - Netlify hardening: HSTS, Permissions-Policy, immutable caching for hashed assets,
   must-revalidate for the app shell; CSP drops the unused `fonts.gstatic.com` and — with
-  @nuxt/icon's API fallback disabled (icons are fully bundled, local-only per the family
+  @nuxt/icon's runtime provider disabled entirely (`provider: 'none'` — every icon ships in
+  the client bundle, the two @nuxt/ui internals via a measured allow-list; local-only per the family
   guidelines) — `api.iconify.design`, and gains `object-src 'none'`, `base-uri 'self'`,
   `form-action 'self'`, `frame-ancestors 'none'`; deploys build only (CI is the test gate)
 ```
@@ -528,3 +529,4 @@ git commit -m "docs: changelog for coverage enforcement and Netlify hardening"
 - Spec coverage: §1 riders → Tasks 1-3; §2 enforcement → Task 4; §3 headers + build-only → Task 5; §4 CSP/option A → Task 5 (comment text included verbatim); §5 verification → Task 5 steps 3-4 + Task 6 step 2; CHANGELOG → Task 6.
 - The one deliberate reference-not-repetition: Task 2's `SimParams` literal is copied from a named existing test file (`test/unit/betRamp.test.ts`) rather than invented here — the type's shape lives there and drift would be worse than the lookup.
 - Type consistency: `FakeWorkerScope` local to Task 2; floor numbers in Task 4 are explicitly illustrative with the substitution formula stated twice.
+- Execution-record notes: Task 1 additionally added a comment-only `v8 ignore start/stop` region for the unreachable bots.ts:138 (deviation from 'no production changes', confirmed at final review); Task 5's mechanism was corrected mid-execution per spec §4 (commit 4675ac7).
