@@ -416,4 +416,70 @@ describe('useGameLoop (quick mode)', () => {
     loop.endSession()
     expect(loop.lastDecision.value).toBeNull()
   })
+
+  it('a between-rounds refresh keeps the shoe and the count (README claim)', () => {
+    // control: two rounds uninterrupted
+    freshHarness()
+    const control = useGameLoop()
+    control.startSession(settings({ count: 'shown' }), 100_000, 7)
+    playFullRound(control)
+    playFullRound(control)
+    const controlRec = useBlackjackStore().history[1]!
+    const controlCards = JSON.stringify({
+      dealer: controlRec.dealer.cards,
+      hero: controlRec.spots.map(s => s.hands.map(h => h.cards))
+    })
+
+    // same seed, refreshed between rounds
+    freshHarness()
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'shown' }), 100_000, 7)
+    playFullRound(loop)
+    const countBefore = { ...store.countState! }
+    expect(store.roundSnapshot).not.toBeNull() // the between-rounds checkpoint exists
+
+    __resetGameLoopForTests() // refresh: module state gone, store survives
+    const loop2 = useGameLoop()
+    expect(loop2.restoreSession()).toBe(true)
+    expect(store.countState).toEqual(countBefore) // count survived
+    playFullRound(loop2)
+    const rec = store.history[1]!
+    expect(rec.round).toBe(2)
+    expect(JSON.stringify({
+      dealer: rec.dealer.cards,
+      hero: rec.spots.map(s => s.hands.map(h => h.cards))
+    })).toBe(controlCards) // identical shoe continuation
+  })
+
+  it('a refresh during the opening deal rewinds to the round start on the same shoe', async () => {
+    vi.useFakeTimers()
+    freshHarness()
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ mode: 'casino' }), 100_000, 7)
+    loop.beginRound(1000, {})
+    await vi.runAllTimersAsync()
+    while (loop.phase.value === 'insurance' || loop.phase.value === 'playerTurns') {
+      if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+      else loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+      await vi.runAllTimersAsync()
+    }
+    expect(loop.phase.value).toBe('complete')
+    const bankrollAfterRound1 = store.bankroll
+    const countAfterRound1 = { ...store.countState! }
+
+    loop.beginRound(1000, {}) // round 2 deal starts pacing…
+    await vi.advanceTimersByTimeAsync(100) // …and is interrupted mid-presentation
+    vi.useRealTimers()
+
+    __resetGameLoopForTests()
+    const loop2 = useGameLoop()
+    expect(loop2.restoreSession()).toBe(true)
+    // rewound to the round-1-complete checkpoint: same bankroll, same count, betting UI
+    expect(store.bankroll).toBe(bankrollAfterRound1)
+    expect(store.countState).toEqual(countAfterRound1)
+    expect(loop2.phase.value).toBe('complete')
+    expect(loop2.queueIdle.value).toBe(true)
+  })
 })

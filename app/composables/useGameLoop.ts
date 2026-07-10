@@ -416,7 +416,14 @@ function finalizeRound(): void {
     store.advanceBotState(id, last, persona.nextBet(state.bet, last, store.settings!.rules, quipRng))
   }
   store.setRoundTrail(null)
-  store.saveSnapshot(null)
+  // between-rounds checkpoint: the shoe and count survive a refresh at the betting screen
+  // (mid-decision checkpoints are written by snapshotToStore; this one covers settlement →
+  // next deal, and doubles as the rewind point for a refresh during the next opening deal)
+  try {
+    store.saveSnapshot(game.snapshot())
+  } catch {
+    store.saveSnapshot(null) // test CardSources are not serializable
+  }
 }
 
 function snapshotToStore(): void {
@@ -585,7 +592,7 @@ export function useGameLoop() {
     }))
     queueIdle.value = true
     updateTrayFill()
-    pushAnnouncement('Table restored — your move')
+    pushAnnouncement(game.phase === 'complete' ? 'Table restored — place your bet' : 'Table restored — your move')
   }
 
   function beginRound(heroBet: number, heroSideStakes: Partial<Record<SideBetKind, number>>): void {
