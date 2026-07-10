@@ -7,7 +7,10 @@ type FocusTarget = HTMLElement | { $el?: HTMLElement } | null
  *  role="status" region bound to srText — a region that mounts already containing its
  *  message is unreliably announced, so the node persists and only the text changes.
  *  announce() also hands focus to the Next/Again button: the answered button unmounts
- *  with the v-if swap, and without the hand-off focus falls to <body>. */
+ *  with the v-if swap, and without the hand-off focus falls to <body>.
+ *  Tests asserting focus must mount with `attachTo: document.body` — detached nodes can
+ *  never be document.activeElement — and register `onTestFinished(() => w.unmount())` so
+ *  cleanup still runs when an assertion throws. */
 export function useDrillFeedback(): {
   srText: Ref<string>
   focusEl: Ref<FocusTarget>
