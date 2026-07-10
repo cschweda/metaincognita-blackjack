@@ -14,7 +14,7 @@ test('a mid-round reload restores the exact table', async ({ page, goto }) => {
   await standUntilComplete(page)
 })
 
-test('a between-rounds reload restores the same shoe and lets play continue', async ({ page, goto }) => {
+test('a between-rounds reload restores the table and lets play continue', async ({ page, goto }) => {
   await newSession(page, goto, { seed: 7 })
   await betAndDeal(page)
   await declineInsuranceIfOffered(page)

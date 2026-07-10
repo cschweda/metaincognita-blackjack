@@ -85,7 +85,7 @@ describe('table page integration (quick mode, seeded)', () => {
     expect(page.find('[data-testid="study-hotspot-shoe"]').exists()).toBe(true)
   })
 
-  it('hole toggle exposes the mucked hole card', async () => {
+  it('hole toggle renders, binds aria-pressed, and flips the store both ways', async () => {
     const store = useBlackjackStore()
     const loop = useGameLoop()
     const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
