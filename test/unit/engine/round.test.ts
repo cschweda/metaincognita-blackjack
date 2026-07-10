@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BlackjackGame, IllegalActionError } from '../../../app/utils/engine/round'
-import type { CardSource } from '../../../app/utils/engine/round'
+import type { CardSource, GameEvent } from '../../../app/utils/engine/round'
 import { PRESETS, cloneRules } from '../../../app/utils/engine/rules'
 import type { Card, Suit } from '../../../app/utils/engine/cards'
 
@@ -581,5 +581,78 @@ describe('no-peek games — the hole card is not consulted until the reveal', ()
     expect(g.phase).toBe('complete')
     const ll = g.spots[0]!.sideBetResults.find(x => x.name === 'Lucky Ladies')!
     expect(ll.net).toBe(500 * 1000) // qh-pair-dealer-bj tier (MA §24(f))
+  })
+})
+
+describe('BlackjackGame — hole-card muck procedure', () => {
+  function collect(g: BlackjackGame): GameEvent[] {
+    const events: GameEvent[] = []
+    g.on(e => events.push(e))
+    return events
+  }
+
+  it('mucks the unseen hole when every hand busts — no reveal, no count, no announce', () => {
+    // hero 10,6 vs dealer 7 up / 10 hole; hero hits a 10 → bust 26
+    const g = game([c(10), c(7, 'hearts'), c(6), c(10, 'clubs'), c(10, 'diamonds')])
+    const events = collect(g)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit')
+    expect(g.phase).toBe('complete')
+    expect(g.holeRevealed).toBe(false)
+    expect(events.some(e => e.type === 'hole-revealed')).toBe(false)
+    // counted: hero 10, up 7, hero 6, hit 10 — never the hole
+    const counted = events.filter(e => e.type === 'count-visible-card')
+    expect(counted).toHaveLength(4)
+  })
+
+  it('mucks the hole after a lone surrender', () => {
+    const g = game([c(10), c(9, 'hearts'), c(6), c(10, 'clubs')])
+    const events = collect(g)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'surrender')
+    expect(g.phase).toBe('complete')
+    expect(g.holeRevealed).toBe(false)
+    expect(events.some(e => e.type === 'hole-revealed')).toBe(false)
+  })
+
+  it('exposeHoleAtCleanup = true restores the show-and-count study behavior', () => {
+    const g = game([c(10), c(7, 'hearts'), c(6), c(10, 'clubs'), c(10, 'diamonds')])
+    g.exposeHoleAtCleanup = true
+    const events = collect(g)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'hit')
+    expect(g.phase).toBe('complete')
+    expect(g.holeRevealed).toBe(true)
+    expect(events.filter(e => e.type === 'hole-revealed')).toHaveLength(1)
+    expect(events.filter(e => e.type === 'count-visible-card')).toHaveLength(5)
+  })
+
+  it('a deferred Lucky Ladies wager forces the natural check even when all hands bust (MA §24(f))', () => {
+    const r = cloneRules(PRESETS.MA_205CMR!)
+    r.dealerPeek = false // ten-up defers Lucky Ladies until the hole is checked
+    r.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'MA-A', matchTheDealer: false, buster: 'off' }
+    // hero 10,6 vs dealer 10 up / 5 hole; hero hits a 10 → bust
+    const g = game([c(10), c(10, 'hearts'), c(6), c(5, 'clubs'), c(10, 'diamonds')], r)
+    const events = collect(g)
+    g.beginRound([{ spotId: 0, mainBet: 1000, sideBets: { luckyLadies: 500 } }])
+    g.act(0, 'hit')
+    expect(g.phase).toBe('complete')
+    // the dealer must check the hole to settle the LL dealer-blackjack tier
+    expect(g.holeRevealed).toBe(true)
+    expect(events.filter(e => e.type === 'hole-revealed')).toHaveLength(1)
+    const ll = g.spots[0]!.sideBetResults.filter(x => x.name === 'Lucky Ladies')
+    expect(ll).toHaveLength(1)
+    expect(ll[0]!.net).toBe(-500) // 16 is not a twenty
+    // no dealer draw happened — natural check only
+    expect(g.dealerCards).toHaveLength(2)
+  })
+
+  it('still reveals when the dealer must play out (regression)', () => {
+    const g = game([c(10), c(7, 'hearts'), c(9), c(10, 'clubs')]) // hero 19 stands vs 17
+    const events = collect(g)
+    g.beginRound([{ spotId: 0, mainBet: 1000 }])
+    g.act(0, 'stand')
+    expect(g.holeRevealed).toBe(true)
+    expect(events.filter(e => e.type === 'hole-revealed')).toHaveLength(1)
   })
 })

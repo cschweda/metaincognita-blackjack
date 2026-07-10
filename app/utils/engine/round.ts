@@ -73,6 +73,9 @@ export class BlackjackGame {
   spots: SpotState[] = []
   dealerCards: Card[] = []
   holeRevealed = false
+  /** Training aid: expose (and count) a mucked hole at cleanup. Real US procedure keeps a
+   *  hole the round never forced face-up mucked face-down — counters never see it. */
+  exposeHoleAtCleanup = false
   // restore() reassigns shoe — must not be readonly
   shoe: CardSource
 
@@ -332,6 +335,14 @@ export class BlackjackGame {
     return this.dealerUp.rank === 14 || handTotal([this.dealerUp]).total === 10
   }
 
+  /** A deferred Lucky Ladies wager (no-peek T/A up, §24(f) 1000:1 tier) still needs the
+   *  natural check — the dealer physically turns the hole to settle it. */
+  private get luckyLadiesPending(): boolean {
+    if (this.rules.sideBets.luckyLadies === 'off') return false
+    return this.spots.some(s =>
+      (s.sideBets.luckyLadies ?? 0) > 0 && !s.sideBetResults.some(r => r.name === 'Lucky Ladies'))
+  }
+
   private startPlayerTurns(): void {
     // Lucky Ladies needs dealer-BJ knowledge — settle now unless a no-peek hole could still
     // hide a natural (then it waits for the reveal, MA §24(f) 1000:1 tier)
@@ -474,8 +485,8 @@ export class BlackjackGame {
         : this.rules
       this.dealerCards = dealerPlay(this.dealerCards, () => this.deal('dealer-draw', true), drawRules)
       this.emit({ type: 'announce', text: `Dealer ${isBust(this.dealerCards) ? 'busts' : handTotal(this.dealerCards).total}` })
-    } else if (pendingBlackjacks.length > 0 || insurancePending) {
-      this.revealHole() // no draw — only the natural check matters (MA §12(c))
+    } else if (pendingBlackjacks.length > 0 || insurancePending || this.luckyLadiesPending) {
+      this.revealHole() // no draw — only the natural check matters (MA §12(c), §24(f))
     }
 
     // Only reachable as true in no-peek games: peek rounds with a natural ended at the peek
@@ -529,7 +540,8 @@ export class BlackjackGame {
   }
 
   private completeRound(): void {
-    this.revealHole() // table practice: hole card is exposed at cleanup — counters get to see it
+    // real procedure mucks an unseen hole face-down; the toggle exposes it for study
+    if (this.exposeHoleAtCleanup) this.revealHole()
     const all = [
       ...this.spots.flatMap(s => s.hands.flatMap(h => h.cards)),
       ...this.dealerCards
