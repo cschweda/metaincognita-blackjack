@@ -484,15 +484,56 @@ describe('useGameLoop (quick mode)', () => {
     expect(loop2.queueIdle.value).toBe(true)
   })
 
+  /** True if the next three rounds (played from wherever `probe`'s session currently sits) are
+   *  all hero wins under the stand policy. */
+  function wonThreeStraight(probe: ReturnType<typeof useGameLoop>): boolean {
+    for (let r = 0; r < 3; r++) {
+      playFullRound(probe)
+      const hero = useBlackjackStore().history[r]!.spots.find(x => x.occupant === 'hero')!
+      const heroNet = hero.hands.reduce((sum, h) => sum + h.net, 0)
+        + hero.sideBets.reduce((sum, b) => sum + b.net, 0) + hero.insuranceNet
+      if (heroNet <= 0) return false
+    }
+    return true
+  }
+
+  /** First seed whose opening three rounds are all hero wins under the stand policy — the only
+   *  deterministic way to reach roundMilestones' winStreak === 3 flair line from a fresh session
+   *  (a push leaves the streak unchanged and a loss resets it, so three straight wins is the
+   *  only path). Bounded the same way as findBustSeed's precedent above. */
+  function findWinStreakSeed(): number {
+    for (let s = 1; s <= 200; s++) {
+      freshHarness()
+      const probe = useGameLoop()
+      probe.startSession(settings(), 100_000, s)
+      if (wonThreeStraight(probe)) return s
+    }
+    throw new Error('no three-consecutive-win seed found under 200')
+  }
+
   it('announces the round outcome in its own live region, immune to flair overwrites', () => {
+    const seed = findWinStreakSeed()
+    freshHarness()
     const store = useBlackjackStore()
     const loop = useGameLoop()
-    loop.startSession(settings({ flair: true }), 100_000, 7)
-    playFullRound(loop)
-    const headline = summarizeRound(store.history[0]!)!.headline
+    // flair is already settings()'s default (true) — kept explicit because this test's whole
+    // premise (a milestone/flair line actually firing) depends on it being on
+    loop.startSession(settings({ flair: true }), 100_000, seed)
+    playFullRound(loop) // win 1
+    playFullRound(loop) // win 2
+    playFullRound(loop) // win 3 — fires roundMilestones' winStreak-3 flair line
+    const headline = summarizeRound(store.history[2]!)!.headline
+    const flairLine = 'Pit boss glances over — three in a row.' // roundMilestones, winStreak === 3
     expect(loop.outcomeLive.value).toBe(headline)
-    // the visible strip still carries the headline even when flair lines follow it
-    expect(loop.announcements.value.some(a => a.text === headline)).toBe(true)
+    // the visible strip carries the headline, and the flair line lands after it
+    const headlineIndex = loop.announcements.value.findIndex(a => a.text === headline)
+    const flairIndex = loop.announcements.value.findIndex(a => a.text === flairLine)
+    expect(headlineIndex).toBeGreaterThanOrEqual(0)
+    expect(flairIndex).toBeGreaterThan(headlineIndex)
+    // the flair line DID win the shared liveText — proof a competing write actually happened —
+    // yet outcomeLive (asserted above) was untouched by it: this is the isolation the test is for
+    expect(loop.liveText.value).toBe(flairLine)
+    expect(loop.liveText.value).not.toBe(headline)
     loop.beginRound(1000, {})
     expect(loop.outcomeLive.value).toBe('') // cleared so the next identical outcome re-announces
   })
