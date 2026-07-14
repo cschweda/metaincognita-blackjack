@@ -36,6 +36,13 @@ function subPageBack() {
   <div class="flex h-screen flex-col overflow-hidden bg-neutral-950">
     <nav class="z-50 flex h-9 shrink-0 items-center justify-between border-b border-neutral-800 bg-neutral-900 px-3">
       <div class="flex items-center gap-2">
+        <!-- Out of the trainer entirely. Not to be confused with "Leave table" beside
+             it: that one ends the session and asks first; this one only leaves the SPA. -->
+        <AppHubLink />
+        <span
+          class="h-4 w-px bg-neutral-800"
+          aria-hidden="true"
+        />
         <button
           v-if="onTable"
           class="flex items-center gap-1 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
