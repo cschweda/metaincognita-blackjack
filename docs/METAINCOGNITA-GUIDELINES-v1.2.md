@@ -4,7 +4,7 @@
 Version: **1.2** · Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
 metaincognita.com umbrella repo when it exists) · Last revised: 2026-07-14
 
-> **v1.2 (2026-07-14):** the umbrella site is no longer hypothetical — **metaincognita.com** is live (`metaincognita-default`), built as a floor with a cabinet per game. Added **the hub exit** (§5): every simulator carries a gold `METAINCOGNITA` wordmark in the top bar that leaves the app for the hub, on every route, never hidden and never confirmed. Canonical in **slots** (§8). Recorded **blackjack** as the one pending adopter.
+> **v1.2 (2026-07-14):** the umbrella site is no longer hypothetical — **metaincognita.com** is live (`metaincognita-default`), built as a floor with a cabinet per game. Added **the hub exit** (§5): every simulator carries a gold `METAINCOGNITA` wordmark in the top bar that leaves the app for the hub, on every route, never hidden and never confirmed. Canonical in **slots** (§8). **Shipped to all nine games the same day** — until then the hub linked out to every game and not one of them linked home.
 
 > **v1.1 (2026-06-13):** added the render-verification discipline (§4 — browser-smoke every UI phase; test display logic against *real* engine output, never hand-made fixtures); added slot-machine visual conventions (§5) and **slots** as a canonical reference (§2.4, §8); recorded `app/engine/` as an accepted engine path (§3).
 
@@ -225,8 +225,8 @@ system, typography, layout, and component patterns. Summary of the non-negotiabl
     `aria-label="METAINCOGNITA — exit the simulator, back to all the games"`. "Meta Incognita"
     reads fine and fails WCAG 2.5.3 (Label in Name) on the space.
 
-  *Pending adopter: **blackjack**, whose chrome is frozen by owner rule. Every other app on the
-  hub has it. This is the one place the suite knowingly contradicts this document.*
+  **All nine games on the hub carry it.** There is no exception and no pending adopter — if you
+  are reading this in a repo whose top bar has no hub exit, that repo is wrong, not this page.
 - **Typography**: Fira Code (or system mono) for every number, count, and EV; system-ui for
   prose. If a number matters, it is monospaced.
 - **Per-game accent** via `app.config.ts` `primary`; table games additionally use the shared

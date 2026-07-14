@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
+### Added
+- **A way out — the hub exit.** A gold **METAINCOGNITA** wordmark now sits at the far left of
+  the top status bar on every route, linking to `https://metaincognita.com` — the floor where
+  every Metaincognita game lives. Until now the hub linked out to all nine games and not one of
+  them linked home; a player deep in a session had no way back but the browser's back button.
+  It is a real `<a href>`, opens in the **same tab** (an exit, not a side trip), is never hidden
+  or gated, and — unlike **Leave table** — **never confirms**, because it destroys nothing. The
+  two are deliberately separate controls and a test pins that clicking the exit does not open
+  the leave confirmation. Its accessible name contains the visible wordmark verbatim, or it
+  would fail WCAG 2.5.3 (Label in Name). Suite chrome, per METAINCOGNITA-GUIDELINES v1.2 §5.
+
 ### Fixed (training correctness)
 - Deviation Quiz derives the book play from the EV engine under the active rules instead of a
   hand-rolled reverse mapping — the five negative-count Illustrious-18 reversals no longer
