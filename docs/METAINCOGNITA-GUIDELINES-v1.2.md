@@ -1,8 +1,10 @@
 # Metaincognita Guidelines
 
 **The standard for every simulator in the Metaincognita casino suite.**
-Version: **1.1** · Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
-metaincognita.com umbrella repo when it exists) · Last revised: 2026-06-13
+Version: **1.2** · Status: living document · canonical home: `metaincognita-blackjack/docs/` (move to the
+metaincognita.com umbrella repo when it exists) · Last revised: 2026-07-14
+
+> **v1.2 (2026-07-14):** the umbrella site is no longer hypothetical — **metaincognita.com** is live (`metaincognita-default`), built as a floor with a cabinet per game. Added **the hub exit** (§5): every simulator carries a gold `METAINCOGNITA` wordmark in the top bar that leaves the app for the hub, on every route, never hidden and never confirmed. Canonical in **slots** (§8). Recorded **blackjack** as the one pending adopter.
 
 > **v1.1 (2026-06-13):** added the render-verification discipline (§4 — browser-smoke every UI phase; test display logic against *real* engine output, never hand-made fixtures); added slot-machine visual conventions (§5) and **slots** as a canonical reference (§2.4, §8); recorded `app/engine/` as an accepted engine path (§3).
 
@@ -203,9 +205,28 @@ system, typography, layout, and component patterns. Summary of the non-negotiabl
 
 - **Stack**: Nuxt 4 · Vue 3 · Nuxt UI 4 · Tailwind 4 · Pinia · TypeScript · pnpm · Vitest
   (unit/nuxt projects) · Playwright · Netlify static. Dark mode only.
-- **Chrome** (identical everywhere): slim top status bar (back/leave + session stat),
-  bottom bar with page navigation (History · Analysis · Learn · Drills), version string, and
-  GitHub link; "leave" always confirms before destroying a session.
+- **Chrome** (identical everywhere): slim top status bar — **the hub exit pinned to its far
+  left**, then back/leave + session stat — and a bottom bar with page navigation
+  (History · Analysis · Learn · Drills), version string, and GitHub link; "leave" always
+  confirms before destroying a session.
+- **The hub exit** (`AppHubLink`, canonical in **slots**): a gold `METAINCOGNITA` wordmark
+  linking to `https://metaincognita.com` — the floor every game hangs off. Nine games hung off
+  that hub for months and not one of them linked home; a player deep in a cabinet had no way
+  out but the browser's back button. The rules:
+  - a **real `<a href>`**, never a router push — it leaves the SPA;
+  - **same tab**, no `target="_blank"` — this is an *exit*, not a side trip;
+  - on **every route, including the app's own index**. It is never gated, and it never hides;
+  - it **never confirms**. It destroys nothing, and a player must *always* be able to leave.
+    Do not confuse it with **back/leave**, which stays exactly as it is and — where it really
+    does destroy a session — keeps its confirm. The hub exit is not a leave; it is the door.
+  - it stays **gold in every app** even where the game accent is not. This is suite chrome,
+    not game chrome: a player learns it once and finds it everywhere.
+  - its accessible name must **contain the visible wordmark verbatim** —
+    `aria-label="METAINCOGNITA — exit the simulator, back to all the games"`. "Meta Incognita"
+    reads fine and fails WCAG 2.5.3 (Label in Name) on the space.
+
+  *Pending adopter: **blackjack**, whose chrome is frozen by owner rule. Every other app on the
+  hub has it. This is the one place the suite knowingly contradicts this document.*
 - **Typography**: Fira Code (or system mono) for every number, count, and EV; system-ui for
   prose. If a number matters, it is monospaced.
 - **Per-game accent** via `app.config.ts` `primary`; table games additionally use the shared
@@ -280,6 +301,7 @@ system, typography, layout, and component patterns. Summary of the non-negotiabl
 | Training formula end-to-end (graded decisions → analysis → mistake-seeded drills), event-paced engine boundary, lifetime training stats, E2E suite, a11y pass, badges, these guidelines | **blackjack** |
 | Reel/machine visuals — icon registry, spinning reels, drawn paylines + glow, held result bar with bankroll sparkline, per-machine marquee, denomination tag; render-verification browser smoke | **slots** |
 | Exact-enumeration math + computed-never-asserted RTP (every displayed figure traces to `exactRtp`; frozen per-machine values pinned in tests; PAR-sheet derivations) | **slots** (`app/engine/`) |
+| The hub exit — the gold wordmark that leaves the app for the floor at metaincognita.com | **slots** (`app/components/AppHubLink.vue`) |
 
 ## 9. New-simulator checklist
 
