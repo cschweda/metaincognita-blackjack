@@ -1,7 +1,13 @@
 import type { Card } from './cards'
+import type { SideBetConfig } from './rules'
 import { handTotal } from './hand'
 
+/** Stable identity — the same key the stake is wagered under (SideBetConfig).
+ *  Guards and ledgers key on this; `name` is display copy and free to change. */
+export type SideBetId = keyof SideBetConfig
+
 export interface SideBetResult {
+  id: SideBetId
   name: string
   win: boolean
   payoutMultiplier: number // winnings per unit staked (0 when lost)
@@ -41,7 +47,7 @@ export function evaluate21Plus3(
     : trips ? 'three-of-a-kind' : straight ? 'straight' : flush ? 'flush' : 'none'
   const pays = TWENTY_ONE_PLUS_THREE_PAYS[table]!
   const multiplier = label === 'none' ? 0 : pays[label]!
-  return { name: '21+3', win: multiplier > 0, payoutMultiplier: multiplier, label }
+  return { id: 'twentyOnePlusThree', name: '21+3', win: multiplier > 0, payoutMultiplier: multiplier, label }
 }
 
 // ---- Lucky Ladies / twenty-point bonus (MA §24(f)-(g)) ----
@@ -75,7 +81,7 @@ export function evaluateLuckyLadies(
     }
   }
   const multiplier = label === 'none' ? 0 : LUCKY_LADIES_PAYS[table]![label]!
-  return { name: 'Lucky Ladies', win: multiplier > 0, payoutMultiplier: multiplier, label }
+  return { id: 'luckyLadies', name: 'Lucky Ladies', win: multiplier > 0, payoutMultiplier: multiplier, label }
 }
 
 // ---- Match the Dealer (MA §23(f), deck-dependent) ----
@@ -124,7 +130,7 @@ export function evaluateMatchTheDealer(player: [Card, Card], dealerUp: Card, dec
     }
   }
   if (multiplier === 0) label = 'none'
-  return { name: 'Match the Dealer', win: multiplier > 0, payoutMultiplier: multiplier, label }
+  return { id: 'matchTheDealer', name: 'Match the Dealer', win: multiplier > 0, payoutMultiplier: multiplier, label }
 }
 
 // ---- Buster (MA §27(g) paytables A-F) ----
@@ -152,11 +158,11 @@ export function evaluateBuster(
 ): SideBetResult {
   const busted = handTotal(dealerCards).total > 21
   if (dealerHasBlackjack || !busted) {
-    return { name: 'Buster', win: false, payoutMultiplier: 0, label: 'none' }
+    return { id: 'buster', name: 'Buster', win: false, payoutMultiplier: 0, label: 'none' }
   }
   const n = dealerCards.length
-  if (n < 3) return { name: 'Buster', win: false, payoutMultiplier: 0, label: 'none' }
+  if (n < 3) return { id: 'buster', name: 'Buster', win: false, payoutMultiplier: 0, label: 'none' }
   const key = n >= 8 ? '8+' : String(n)
   const multiplier = BUSTER_PAYS[table]![key]!
-  return { name: 'Buster', win: true, payoutMultiplier: multiplier, label: `bust-${key}-cards` }
+  return { id: 'buster', name: 'Buster', win: true, payoutMultiplier: multiplier, label: `bust-${key}-cards` }
 }

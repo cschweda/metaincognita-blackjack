@@ -112,3 +112,21 @@ describe('BlackjackGame snapshot/restore', () => {
     expect(crossedShuffle).toBe(true) // the comparison genuinely crossed a shuffle boundary
   })
 })
+
+describe('v1 snapshot compatibility', () => {
+  it('backfills side-bet result ids on restore so once-only guards keep holding', () => {
+    const rules = cloneRules(PRESETS.MA_205CMR!)
+    rules.sideBets = { twentyOnePlusThree: 'MA-B', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    const game = new BlackjackGame(rules, { seed: 99 })
+    game.beginRound([{ spotId: 0, mainBet: 1000, sideBets: { twentyOnePlusThree: 500 } }])
+    // 21+3 settles with the deal (MA §28(e)) — mid-flight with one result already recorded
+    expect(game.spots[0]!.sideBetResults).toHaveLength(1)
+
+    const snap = game.snapshot()
+    for (const spot of snap.spots) {
+      for (const r of spot.sideBetResults) delete (r as { id?: unknown }).id // v1 predates SideBetResult.id
+    }
+    const restored = BlackjackGame.restore(snap)
+    expect(restored.spots[0]!.sideBetResults[0]!.id).toBe('twentyOnePlusThree')
+  })
+})

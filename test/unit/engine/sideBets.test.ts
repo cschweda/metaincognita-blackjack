@@ -76,6 +76,15 @@ describe('Match the Dealer (MA §23)', () => {
   })
 })
 
+describe('stable side-bet ids', () => {
+  it('every evaluator carries the id its stake is keyed under, independent of display name', () => {
+    expect(evaluate21Plus3([c(5, 'hearts'), c(6, 'clubs')], c(7, 'spades'), 'MA-B').id).toBe('twentyOnePlusThree')
+    expect(evaluateLuckyLadies([c(12, 'hearts'), c(12, 'hearts')], false, 'MA-A').id).toBe('luckyLadies')
+    expect(evaluateMatchTheDealer([c(10, 'hearts'), c(2, 'clubs')], c(10, 'spades'), 6).id).toBe('matchTheDealer')
+    expect(evaluateBuster([c(10, 'hearts'), c(7, 'clubs')], false, 'A').id).toBe('buster')
+  })
+})
+
 describe('Buster (MA §27)', () => {
   it('loses when the dealer does not bust or has blackjack (MA §27(d))', () => {
     expect(evaluateBuster([c(10, 'hearts'), c(7, 'clubs')], false, 'A').win).toBe(false)

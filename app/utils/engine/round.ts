@@ -12,7 +12,7 @@ import { cloneRules } from './rules'
 import {
   evaluate21Plus3, evaluateBuster, evaluateLuckyLadies, evaluateMatchTheDealer
 } from './sideBets'
-import type { SideBetResult } from './sideBets'
+import type { SideBetId, SideBetResult } from './sideBets'
 
 export class IllegalActionError extends Error {}
 
@@ -31,7 +31,15 @@ export interface CardSource {
 
 export type Phase = 'betting' | 'insurance' | 'playerTurns' | 'complete'
 
-export type SideBetKind = 'twentyOnePlusThree' | 'luckyLadies' | 'matchTheDealer' | 'buster'
+export type SideBetKind = SideBetId
+
+/** Display-name → id map for pre-id (v1) snapshots restored after the upgrade. */
+const LEGACY_SIDE_BET_IDS: Record<string, SideBetId | undefined> = {
+  '21+3': 'twentyOnePlusThree',
+  'Lucky Ladies': 'luckyLadies',
+  'Match the Dealer': 'matchTheDealer',
+  'Buster': 'buster'
+}
 
 export interface SpotBet {
   spotId: number
@@ -297,7 +305,7 @@ export class BlackjackGame {
   private settleBusterForSpot(spot: SpotState, dealerHasBlackjack: boolean): void {
     const stake = spot.sideBets.buster ?? 0
     if (stake <= 0 || this.rules.sideBets.buster === 'off') return
-    if (spot.sideBetResults.some(r => r.name === 'Buster')) return // once-only guard
+    if (spot.sideBetResults.some(r => r.id === 'buster')) return // once-only guard
     const result = evaluateBuster(this.dealerCards, dealerHasBlackjack, this.rules.sideBets.buster)
     this.recordSideBet(spot, result, stake)
   }
@@ -305,7 +313,7 @@ export class BlackjackGame {
   private settleLuckyLadies(dealerHasBlackjack: boolean): void {
     for (const spot of this.spots) {
       const stake = spot.sideBets.luckyLadies ?? 0
-      if (stake > 0 && this.rules.sideBets.luckyLadies !== 'off' && !spot.sideBetResults.some(r => r.name === 'Lucky Ladies')) {
+      if (stake > 0 && this.rules.sideBets.luckyLadies !== 'off' && !spot.sideBetResults.some(r => r.id === 'luckyLadies')) {
         const hand = spot.hands[0]!
         const result = evaluateLuckyLadies([hand.cards[0]!, hand.cards[1]!], dealerHasBlackjack, this.rules.sideBets.luckyLadies)
         this.recordSideBet(spot, result, stake)
@@ -340,7 +348,7 @@ export class BlackjackGame {
   private get luckyLadiesPending(): boolean {
     if (this.rules.sideBets.luckyLadies === 'off') return false
     return this.spots.some(s =>
-      (s.sideBets.luckyLadies ?? 0) > 0 && !s.sideBetResults.some(r => r.name === 'Lucky Ladies'))
+      (s.sideBets.luckyLadies ?? 0) > 0 && !s.sideBetResults.some(r => r.id === 'luckyLadies'))
   }
 
   private startPlayerTurns(): void {
@@ -576,6 +584,13 @@ export class BlackjackGame {
     game.shoe = Shoe.restore(snap.shoe, game.rng.next)
     game.phase = snap.phase
     game.spots = JSON.parse(JSON.stringify(snap.spots)) as SpotState[]
+    // v1 snapshots predate SideBetResult.id — rebuild it from the display name so the
+    // once-only settlement guards keep holding across a restore
+    for (const spot of game.spots) {
+      for (const r of spot.sideBetResults as Array<{ id?: SideBetId, name: string }>) {
+        r.id ??= LEGACY_SIDE_BET_IDS[r.name]
+      }
+    }
     game.dealerCards = snap.dealerCards.map(c => ({ ...c }))
     game.holeRevealed = snap.holeRevealed
     return game
