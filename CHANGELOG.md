@@ -133,6 +133,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 - One payout-ratio source: settlement (both round.ts sites) and the EV derivation take
   3:2/6:5 from `blackjackPayoutRatio` in rules.ts instead of three hand-copies of the
   mapping (6/5 divides to the identical double, so every pinned EV chart holds)
+- Dependency patch pass: `@nuxt/test-utils` 4.0.0 → 4.0.3 ends the `vitest/environments`
+  deprecation spam (14 lines per test run); nuxt 4.4.8, @nuxt/ui 4.10, tailwind 4.3.3,
+  vitest 4.1.10 and friends refresh in-range. `@playwright/test`/`playwright-core` are
+  **held at an exact 1.60.0**: 1.61 breaks @nuxt/test-utils' e2e fixture build (cssnano's
+  lilconfig config search crashes under its module transform — every spec fails in
+  beforeAll). Re-test the pin on the next Playwright release
 
 ## [0.4.0] — 2026-06-12
 
