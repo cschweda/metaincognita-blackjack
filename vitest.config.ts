@@ -37,6 +37,9 @@ export default defineConfig({
         'app/utils/engine/**': { statements: 90, branches: 85, functions: 90, lines: 90 },
         // per-file: the engine aggregate must never mask the personas again
         'app/utils/engine/bots.ts': { statements: 90, branches: 85, functions: 90, lines: 90 },
+        'app/utils/*.ts': { statements: 94, branches: 83, functions: 94, lines: 94 },
+        // per-file: the utils aggregate must never mask the learn page's content layer
+        'app/utils/learnContent.ts': { statements: 98, branches: 98, functions: 98, lines: 98 },
         'app/composables/**': { statements: 86, branches: 71, functions: 88, lines: 91 },
         'app/stores/**': { statements: 91, branches: 81, functions: 94, lines: 93 },
         'app/workers/**': { statements: 95, branches: 95, functions: 95, lines: 95 }
