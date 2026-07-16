@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hiLoValue, CountTracker, ILLUSTRIOUS_18, FAB_4, deviationFor, deviationActive } from '../../../app/utils/engine/counting'
+import { hiLoValue, advantageEstimate, CountTracker, ILLUSTRIOUS_18, FAB_4, deviationFor, deviationActive } from '../../../app/utils/engine/counting'
 import { buildDeck } from '../../../app/utils/engine/cards'
 import type { Card, Suit } from '../../../app/utils/engine/cards'
 
@@ -151,5 +151,16 @@ describe('deviation boundaries and scope', () => {
     expect(deviationActive(d16vT, 1)).toBe(true)
     expect(deviationActive(d16vT, 1, true)).toBe(false)
     expect(deviationActive(d16vT, 4, true)).toBe(true)
+  })
+})
+
+describe('advantageEstimate', () => {
+  it('anchors to the supplied base edge: −edge + 0.5% per true count', () => {
+    expect(advantageEstimate(3, 0.014)).toBeCloseTo(0.001, 10) // a 6:5-grade edge eats TC +3
+    expect(advantageEstimate(0, 0.005)).toBeCloseTo(-0.005, 10)
+  })
+
+  it('assumes the classic ~0.5% base when no edge is supplied — (TC − 1) × 0.5%', () => {
+    expect(advantageEstimate(3)).toBeCloseTo(0.01, 10)
   })
 })

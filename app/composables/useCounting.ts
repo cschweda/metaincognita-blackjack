@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import type { Card } from '../utils/engine/cards'
-import { hiLoValue } from '../utils/engine/counting'
+import { advantageEstimate, hiLoValue } from '../utils/engine/counting'
+import { houseEdge } from '../utils/engine/basicStrategy'
 import { useBlackjackStore } from '../stores/useBlackjackStore'
 
 // ── module state (client singleton, mirrors useGameLoop's pattern) ───────────
@@ -61,8 +62,13 @@ export function useCounting() {
     return Math.max(0.5, Math.round(remaining * 2) / 2)
   })
   const tc = computed(() => running.value / decksRemaining.value)
-  /** Educational estimate, not betting advice (spec §4.8): ≈ (TC − 1) × 0.5%. */
-  const advantage = computed(() => (tc.value - 1) * 0.005)
+  /** Anchored to the active rules' computed edge — the same model the Bet Lab prices ramps
+   *  with, so both surfaces read one number. Educational estimate, not betting advice (§4.8). */
+  const baseEdge = computed(() => {
+    const rules = store.settings?.rules
+    return rules ? houseEdge(rules) : undefined
+  })
+  const advantage = computed(() => advantageEstimate(tc.value, baseEdge.value))
 
   function checkCount(entered: number): boolean {
     if (shuffleQuiz.value) return false // a pending shuffle quiz owns the next answer

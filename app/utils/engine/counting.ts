@@ -9,6 +9,14 @@ export function hiLoValue(card: Card): -1 | 0 | 1 {
   return -1
 }
 
+/** Playing advantage at a true count: −baseEdge + 0.5% per TC — the one edge model every
+ *  surface shares (count panel, Bet Lab). Educational estimate, not betting advice (spec §6
+ *  scope). With no measured edge supplied it assumes the classic ~0.5% base, which is exactly
+ *  the familiar (TC − 1) × 0.5% heuristic. */
+export function advantageEstimate(trueCount: number, baseEdge = 0.005): number {
+  return 0.005 * trueCount - baseEdge
+}
+
 /** Tracks the running count from VISIBLE cards only — burn cards never reach observe(). */
 export class CountTracker {
   running = 0
@@ -23,9 +31,8 @@ export class CountTracker {
     return this.running / Math.max(0.5, decksRemaining)
   }
 
-  /** Educational estimate, not betting advice (spec §6 scope): ≈ (TC − 1) × 0.5%. */
-  advantageEstimate(decksRemaining: number): number {
-    return (this.trueCount(decksRemaining) - 1) * 0.005
+  advantageEstimate(decksRemaining: number, baseEdge?: number): number {
+    return advantageEstimate(this.trueCount(decksRemaining), baseEdge)
   }
 
   reset(): void {

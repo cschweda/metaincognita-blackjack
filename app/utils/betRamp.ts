@@ -4,7 +4,7 @@
 
 import type { RuleSet } from './engine/rules'
 import { BlackjackGame } from './engine/round'
-import { CountTracker } from './engine/counting'
+import { CountTracker, advantageEstimate } from './engine/counting'
 import { decideFor } from './engine/bots'
 import { actionEVs } from './engine/basicStrategy'
 import { handTotal } from './engine/hand'
@@ -183,8 +183,8 @@ export function tcFrequencies(rules: RuleSet, rounds: number, seed: number): TcF
 }
 
 /** Closed-form expectation/variance/ruin for a ramp against a measured TC distribution.
- *  Edge model: edge(tc) = −houseEdge + 0.5%·tc (the count panel's quick (TC−1)·0.5%
- *  heuristic assumes a ~0.5% base edge; here we anchor to the preset's computed edge). */
+ *  Edge model: advantageEstimate(tc, houseEdge) = −houseEdge + 0.5%·tc — the same function
+ *  the count panel reads, both anchored to the preset's computed edge. */
 export function rampStats(
   ramp: BetRamp, freqs: TcFrequencies, houseEdgeValue: number, rules: RuleSet
 ): RampStats {
@@ -195,7 +195,7 @@ export function rampStats(
     const f = freqs.freq[b] ?? 0
     if (f === 0) continue
     const bet = Math.max(rules.minBet, Math.min(rules.maxBet, Math.round((ramp.steps[b] ?? 1) * ramp.unitCents)))
-    const edge = -houseEdgeValue + 0.005 * (freqs.meanTc[b] ?? b)
+    const edge = advantageEstimate(freqs.meanTc[b] ?? b, houseEdgeValue)
     ev += f * bet * edge
     variance += f * bet * bet * ROUND_VARIANCE
   }

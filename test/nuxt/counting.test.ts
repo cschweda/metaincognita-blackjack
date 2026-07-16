@@ -6,6 +6,8 @@ import {
 } from '../../app/composables/useCounting'
 import { useBlackjackStore } from '../../app/stores/useBlackjackStore'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
+import { advantageEstimate } from '../../app/utils/engine/counting'
+import { houseEdge } from '../../app/utils/engine/basicStrategy'
 import type { Card } from '../../app/utils/engine/cards'
 
 const c = (rank: number): Card => ({ rank, suit: 'spades' })
@@ -36,6 +38,19 @@ describe('useCounting', () => {
     expect(counting.cardsSeen.value).toBe(3)
     expect(counting.decksRemaining.value).toBe(6) // 309/52 = 5.94 → 6.0 (nearest half deck)
     expect(counting.tc.value).toBeCloseTo(1 / 6)
+  })
+
+  it('advantage anchors to the active rules\' computed edge — a 6:5 table reads worse than the folk 0.5% base', () => {
+    const store = useBlackjackStore()
+    const rules = cloneRules(PRESETS.SINGLE_DECK_65!)
+    store.initSession({
+      rules, mode: 'quick', speed: 'normal',
+      flair: false, botIds: [], advisor: 'feedback', count: 'shown', advancedDeviations: false
+    }, 50_000)
+    const counting = useCounting()
+    countVisibleCard(c(5)) // RC +1
+    expect(counting.advantage.value).toBeCloseTo(advantageEstimate(counting.tc.value, houseEdge(rules)), 10)
+    expect(counting.advantage.value).toBeLessThan((counting.tc.value - 1) * 0.005)
   })
 
   it('checkCount grades exactly and logs to the store', () => {
