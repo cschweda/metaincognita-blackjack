@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-16
+
 ### Added
 - **A way out — the hub exit.** A gold **METAINCOGNITA** wordmark now sits at the far left of
   the top status bar on every route, linking to `https://metaincognita.com` — the floor where
