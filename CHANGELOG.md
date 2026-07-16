@@ -38,6 +38,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   the betting screen restores the same shoe and running count (previously: silent fresh shoe
   and a zeroed count — the README's "count included" claim was only true mid-decision); a
   refresh during the opening deal rewinds cleanly to the round start on the same shoe
+- One edge model everywhere: the count panel's "Edge est." anchors to the active rules'
+  computed house edge via the same `advantageEstimate(tc, houseEdge)` the Bet Lab prices
+  ramps with, instead of the folk (TC − 1) × 0.5% line — on a 6:5 single-deck table the
+  panel now honestly reads ≈1% worse for the same true count
 
 ### Fixed (engine rules)
 - No-peek games implement the documented full-loss model correctly end to end: blackjacks are
@@ -73,6 +77,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 - Lifetime training data is backed up to `blackjack-training-v1.bak` before any discard
   (unknown version or corrupt payload), and a version-migration seam ensures a future
   schema bump maps old data forward instead of destroying it
+- Side-bet once-only settlement guards key on stable ids (the stake's own key) rather than
+  the results' display names — a copy change to 'Buster'/'Lucky Ladies' could have silently
+  allowed a double settlement; mid-round snapshots taken before the ids existed are
+  backfilled on restore
 
 ### Accessibility
 - Face-down cards no longer carry their identity in the DOM (the hole card was readable by
@@ -106,6 +114,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   the client bundle, the two @nuxt/ui internals via a measured allow-list; local-only per the
   family guidelines) — `api.iconify.design`, and gains `object-src 'none'`, `base-uri 'self'`,
   `form-action 'self'`, `frame-ancestors 'none'`; deploys build only (CI is the test gate)
+- Non-engine `app/utils` coverage is gated (aggregate floor plus a per-file learnContent pin,
+  sabotage-verified): `myths()` and `glossary()` interpolation is unit-tested and the file
+  sits at 100%. A README-integrity test resolves every repo-relative link and image against
+  the filesystem and pins the version badge to package.json — the guidelines link had broken
+  on two version bumps running; the tests/e2e badges drop their hand-edited counts entirely
 
 ### Changed
 - One shared money formatter (`formatCents`/`signedCents`) replaces seven local variants;
@@ -117,6 +130,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   (`RampStatsPanel`) are standalone components; the learn page's prose moved to a content
   module (`utils/learnContent`) parameterized by engine facts — the page is structure, the
   copy is data
+- One payout-ratio source: settlement (both round.ts sites) and the EV derivation take
+  3:2/6:5 from `blackjackPayoutRatio` in rules.ts instead of three hand-copies of the
+  mapping (6/5 divides to the identical double, so every pinned EV chart holds)
 
 ## [0.4.0] — 2026-06-12
 
