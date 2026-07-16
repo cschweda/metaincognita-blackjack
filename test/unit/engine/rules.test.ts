@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRESETS, validateRuleSet, cloneRules } from '../../../app/utils/engine/rules'
+import { PRESETS, validateRuleSet, cloneRules, blackjackPayoutRatio } from '../../../app/utils/engine/rules'
 
 describe('PRESETS', () => {
   it('ships the six named presets from the spec', () => {
@@ -57,5 +57,12 @@ describe('cloneRules', () => {
     const r = cloneRules(PRESETS.MA_205CMR)
     r.sideBets.matchTheDealer = !r.sideBets.matchTheDealer
     expect(r.sideBets.matchTheDealer).not.toBe(PRESETS.MA_205CMR.sideBets.matchTheDealer)
+  })
+})
+
+describe('blackjackPayoutRatio', () => {
+  it('maps each posted payout to the one ratio every settlement derives from', () => {
+    expect(blackjackPayoutRatio('3:2')).toEqual({ num: 3, den: 2 })
+    expect(blackjackPayoutRatio('6:5')).toEqual({ num: 6, den: 5 })
   })
 })

@@ -8,7 +8,7 @@ import { statefulMulberry32, randomSeed } from './rng'
 import type { RNG, StatefulRNG } from './rng'
 import type { GameSnapshot } from './serializeTypes'
 import { SNAPSHOT_VERSION } from './serializeTypes'
-import { cloneRules } from './rules'
+import { blackjackPayoutRatio, cloneRules } from './rules'
 import {
   evaluate21Plus3, evaluateBuster, evaluateLuckyLadies, evaluateMatchTheDealer
 } from './sideBets'
@@ -358,8 +358,7 @@ export class BlackjackGame {
 
     // Blackjacks vs 2-9 up (or post-peek no-BJ) pay immediately at 3:2/6:5 (MA §7(a)-(b));
     // under no-peek with T/A up they are HELD until the reveal — a dealer natural is a standoff
-    const bjPayNum = this.rules.blackjackPayout === '3:2' ? 3 : 6
-    const bjPayDen = this.rules.blackjackPayout === '3:2' ? 2 : 5
+    const { num: bjPayNum, den: bjPayDen } = blackjackPayoutRatio(this.rules.blackjackPayout)
     for (const spot of this.spots) {
       const hand = spot.hands[0]!
       if (!hand.resolved && isBlackjack(hand.cards, false)) {
@@ -501,8 +500,7 @@ export class BlackjackGame {
     const dealerNatural = isBlackjack(this.dealerCards, false)
     const dealerTotal = handTotal(this.dealerCards).total
     const dealerBusted = dealerTotal > 21
-    const bjPayNum = this.rules.blackjackPayout === '3:2' ? 3 : 6
-    const bjPayDen = this.rules.blackjackPayout === '3:2' ? 2 : 5
+    const { num: bjPayNum, den: bjPayDen } = blackjackPayoutRatio(this.rules.blackjackPayout)
     for (const spot of this.spots) {
       if (!this.rules.dealerPeek && spot.insuranceBet) {
         spot.insuranceNet = dealerNatural ? spot.insuranceBet * 2 : -spot.insuranceBet

@@ -183,6 +183,11 @@ export function cloneRules(rules: Readonly<RuleSet>): RuleSet {
   return { ...rules, sideBets: { ...rules.sideBets } }
 }
 
+/** The posted blackjack payout as a ratio — the one source settlement and EV math derive from. */
+export function blackjackPayoutRatio(payout: BlackjackPayout): { num: number, den: number } {
+  return payout === '3:2' ? { num: 3, den: 2 } : { num: 6, den: 5 }
+}
+
 export function validateRuleSet(rules: RuleSet): string[] {
   const errors: string[] = []
   if (![1, 2, 4, 6, 8].includes(rules.decks)) errors.push('decks must be 1, 2, 4, 6 or 8 (MA §2(a))')

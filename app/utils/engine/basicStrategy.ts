@@ -1,5 +1,6 @@
 import type { Bucket } from './cards'
 import type { RuleSet } from './rules'
+import { blackjackPayoutRatio } from './rules'
 
 export const BUCKETS: Bucket[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
@@ -353,7 +354,8 @@ function dealtHandEV(
       - (holeNeeded === b1 ? 1 : 0) - (holeNeeded === b2 ? 1 : 0) - (holeNeeded === up ? 1 : 0)
     pDealerBJ = Math.max(0, avail) / (totalCards - 3)
   }
-  const bjPayLocal = rules.blackjackPayout === '3:2' ? 1.5 : 1.2
+  const bjRatio = blackjackPayoutRatio(rules.blackjackPayout)
+  const bjPayLocal = bjRatio.num / bjRatio.den
   if (playerBJ) return (1 - pDealerBJ) * bjPayLocal // dealer BJ → standoff (MA §7(b))
 
   const { total, soft } = totalOf(b1, b2)
