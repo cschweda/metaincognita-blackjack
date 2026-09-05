@@ -4,7 +4,8 @@ import type { RuleSet } from './rules'
 import type { Action, PlayHand } from './hand'
 import { handTotal, isPair, legalActions } from './hand'
 import type { RNG } from './rng'
-import { bestAction, bestActionFull } from './basicStrategy'
+import { actionEVs, bestAction, bestActionFull, clampToLegal } from './basicStrategy'
+import type { ActionEVs } from './basicStrategy'
 import { dealerShouldDraw } from './dealer'
 
 export type PersonaId = 'bea' | 'nancy' | 'mike' | 'ivan' | 'lou'
@@ -28,9 +29,16 @@ function bookAction(hand: PlayHand, handCount: number, up: Card, rules: RuleSet)
   const rec = isPair(hand.cards) && legal.includes('split')
     ? bestActionFull({ pair: bucketOf(hand.cards[0]!), total, soft }, upB, rules)
     : bestAction({ total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit }, upB, rules)
-  if (legal.includes(rec.action as Action)) return rec.action as Action
-  // recommended action unavailable (e.g. double on 3 cards): fall back to stand/hit by EV
-  return rec.evs.stand >= rec.evs.hit ? 'stand' : 'hit'
+  return clampToLegal(rec.action as Action, rec.evs, legal)
+}
+
+/** Book EVs for this hand, used to rank the legal alternatives when a persona wants something the
+ *  table does not offer. */
+function bookEVs(hand: PlayHand, up: Card, rules: RuleSet): ActionEVs {
+  const { total, soft } = handTotal(hand.cards)
+  return actionEVs(
+    { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit },
+    bucketOf(up), rules)
 }
 
 function flatBet(base: number): number {
@@ -121,18 +129,23 @@ export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, deal
   if (legal.length === 0) return 'stand'
   if (legal.length === 1) return legal[0]!
   const { total, soft } = handTotal(hand.cards)
+  // A persona states a PREFERENCE; the table decides what is on offer. bookAction already clamps,
+  // but the quirk branches below never consulted `legal` at all — Mike would hit split aces, where
+  // the only legal actions are split and stand, and the engine refuses it (see botLegality.test).
+  const clamp = (preferred: Action): Action =>
+    legal.includes(preferred) ? preferred : clampToLegal(preferred, bookEVs(hand, dealerUp, rules), legal)
   switch (id) {
     case 'bea':
     case 'ivan':
       return bookAction(hand, handCount, dealerUp, rules)
     case 'nancy':
-      return total >= 12 ? 'stand' : 'hit'
+      return clamp(total >= 12 ? 'stand' : 'hit')
     case 'mike':
-      return dealerShouldDraw(hand.cards, rules) ? 'hit' : 'stand'
+      return clamp(dealerShouldDraw(hand.cards, rules) ? 'hit' : 'stand')
     case 'lou': {
-      if (total === 16 && !soft) return 'stand' // "never bust a 16"
+      if (total === 16 && !soft) return clamp('stand') // "never bust a 16"
       const book = bookAction(hand, handCount, dealerUp, rules)
-      return book === 'surrender' ? 'hit' : book // surrender is for cowards
+      return book === 'surrender' ? clamp('hit') : book // surrender is for cowards
     }
   }
   /* v8 ignore start -- unreachable: the switch above is exhaustive over PersonaId.

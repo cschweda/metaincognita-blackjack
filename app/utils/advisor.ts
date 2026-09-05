@@ -3,8 +3,7 @@ import { bucketOf } from './engine/cards'
 import type { RuleSet } from './engine/rules'
 import type { Action } from './engine/hand'
 import { handTotal, isPair } from './engine/hand'
-import type { ActionEVs } from './engine/basicStrategy'
-import { bestAction, bestActionFull } from './engine/basicStrategy'
+import { bestAction, bestActionFull, clampToLegal } from './engine/basicStrategy'
 import type { Deviation } from './engine/counting'
 import type { DecisionRecord, RoundRecord } from '../stores/useBlackjackStore'
 import { FAB_4, ILLUSTRIOUS_18, deviationFor } from './engine/counting'
@@ -31,14 +30,6 @@ const LABEL: Record<Action, string> = {
 
 export function pctEV(v: number | undefined): string {
   return v === undefined ? '—' : `${(v * 100).toFixed(1)}%`
-}
-
-function clampToLegal(preferred: Action, evs: ActionEVs, legal: Action[]): Action {
-  if (legal.includes(preferred)) return preferred
-  const ranked = (Object.entries(evs) as Array<[Action, number | undefined]>)
-    .filter((entry): entry is [Action, number] => entry[1] !== undefined && legal.includes(entry[0]))
-    .sort((a, b) => b[1] - a[1])
-  return ranked[0]?.[0] ?? legal[0] ?? 'stand'
 }
 
 function buildReasoning(

@@ -1,5 +1,6 @@
 import type { Bucket } from './cards'
 import type { RuleSet } from './rules'
+import type { Action } from './hand'
 import { blackjackPayoutRatio } from './rules'
 
 export const BUCKETS: Bucket[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
@@ -174,6 +175,24 @@ export function actionEVs(state: TotalState, up: Bucket, rules: RuleSet): Action
   }
   if (state.twoCards && !state.fromSplit && rules.surrender === 'late') evs.surrender = -0.5
   return evs
+}
+
+/**
+ * The best action that is actually ON THE TABLE.
+ *
+ * `preferred` is what some policy wants — the book, or a persona's quirk. When the table does not
+ * offer it, rank the remaining LEGAL actions by EV and take the best. Ranking only stand-vs-hit
+ * is not enough: split aces with a resplit available offer exactly ['split','stand'], so a
+ * two-way fallback returns 'hit', which the engine refuses and the round wedges.
+ */
+export function clampToLegal(
+  preferred: Action, evs: ActionEVs, legal: readonly Action[]
+): Action {
+  if (legal.includes(preferred)) return preferred
+  const ranked = (Object.entries(evs) as Array<[Action, number | undefined]>)
+    .filter((entry): entry is [Action, number] => entry[1] !== undefined && legal.includes(entry[0]))
+    .sort((a, b) => b[1] - a[1])
+  return ranked[0]?.[0] ?? legal[0] ?? 'stand'
 }
 
 export interface Recommendation {

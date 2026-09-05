@@ -5,6 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ## [Unreleased]
 
+### Fixed
+
+- **A bot could wedge the table permanently.** `decideFor`'s persona branches never consulted the
+  legal action set, and `bookAction`'s fallback ranked only stand vs hit. Split aces with a resplit
+  available offer exactly `['split', 'stand']`, so Mimic-the-Dealer Mike hit them and By-the-Book
+  Bea's fallback did too — `useGameLoop` calls `game.act()` with no try/catch, so the
+  `IllegalActionError` escaped `void pump()` as an unhandled rejection, the bot never acted, and
+  the round never advanced. Reproduced in **414 configurations** across every persona, preset, peek
+  setting and split cap. A persona now states a preference and one shared `clampToLegal` — the same
+  function the advisor already used, moved into the engine — picks the best action actually on
+  offer.
+
+
 ## [0.5.0] — 2026-07-16
 
 ### Added
