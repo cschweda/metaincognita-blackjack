@@ -2,7 +2,7 @@
 import type { Bucket } from '~/utils/engine/cards'
 import type { RuleSet } from '~/utils/engine/rules'
 import type { ChartCode } from '~/utils/engine/basicStrategy'
-import { BUCKETS, bestAction, bestActionFull, generateChart } from '~/utils/engine/basicStrategy'
+import { BUCKETS, bookPlay, generateChart } from '~/utils/engine/basicStrategy'
 import { pctEV } from '~/utils/advisor'
 
 const props = defineProps<{
@@ -35,13 +35,14 @@ const selected = ref<Selection | null>(null)
 const detail = computed(() => {
   const sel = selected.value
   if (!sel) return null
-  const rec = sel.kind === 'pair'
-    ? bestActionFull(
-        { pair: sel.row as Bucket, total: sel.row === 11 ? 12 : sel.row * 2, soft: sel.row === 11 },
-        sel.up, props.rules)
-    : bestAction(
-        { total: sel.row, soft: sel.kind === 'soft', twoCards: true, fromSplit: false },
-        sel.up, props.rules)
+  const isPairRow = sel.kind === 'pair'
+  const rec = bookPlay(props.rules, sel.up, {
+    total: isPairRow ? (sel.row === 11 ? 12 : sel.row * 2) : sel.row,
+    soft: isPairRow ? sel.row === 11 : sel.kind === 'soft',
+    twoCards: true,
+    fromSplit: false,
+    pair: isPairRow ? sel.row as Bucket : null
+  })
   const label = sel.kind === 'pair' ? pairLabel(sel.row as Bucket) : `${sel.kind} ${sel.row}`
   return { label, up: upLabel(sel.up), action: rec.action, evs: Object.entries(rec.evs) as Array<[string, number]> }
 })
@@ -136,6 +137,17 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
     </div>
     <p class="text-neutral-400">
       H hit · S stand · D double (else hit) · Ds double (else stand) · P split · Rh/Rs/Rp surrender (else hit/stand/split)
+    </p>
+    <p
+      class="text-[10px] leading-relaxed text-neutral-400"
+      data-testid="chart-model-note"
+    >
+      Generated from this table's rules by the EV engine: draw probabilities come from a
+      {{ rules.decks }}-deck shoe with the dealer's upcard removed — and, on pair rows, your pair
+      too. It is a <strong class="text-neutral-200">total-dependent</strong> chart: it reads your
+      total, not which cards made it. A few single-deck plays are composition-dependent exceptions
+      this model does not reach; the best known is 7,7 vs 10, which the single-deck book stands and
+      this chart does not.
     </p>
   </div>
 </template>

@@ -3,7 +3,7 @@ import { bucketOf } from './engine/cards'
 import type { RuleSet } from './engine/rules'
 import type { Action } from './engine/hand'
 import { handTotal, isPair } from './engine/hand'
-import { bestAction, bestActionFull, clampToLegal } from './engine/basicStrategy'
+import { bookPlay, clampToLegal } from './engine/basicStrategy'
 import type { Deviation } from './engine/counting'
 import type { DecisionRecord, RoundRecord } from '../stores/useBlackjackStore'
 import { FAB_4, ILLUSTRIOUS_18, deviationFor } from './engine/counting'
@@ -53,10 +53,13 @@ export function adviseHand(
   const upB = bucketOf(up)
   const { total, soft } = handTotal(input.cards)
   const pairHand = isPair(input.cards) && legal.includes('split')
-  const rec = pairHand
-    ? bestActionFull({ pair: bucketOf(input.cards[0]!), total, soft }, upB, rules)
-    : bestAction(
-        { total, soft, twoCards: input.cards.length === 2, fromSplit: input.fromSplit }, upB, rules)
+  const rec = bookPlay(rules, upB, {
+    total, soft,
+    twoCards: input.cards.length === 2,
+    fromSplit: input.fromSplit,
+    // by the cards, not by legality — clampToLegal below drops an unavailable split
+    pair: isPair(input.cards) ? bucketOf(input.cards[0]!) : null
+  })
   const book = clampToLegal(rec.action as Action, rec.evs, legal)
 
   let action = book

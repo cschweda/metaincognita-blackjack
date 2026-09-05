@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ### Fixed
 
+<<<<<<< HEAD
 - **A bot could wedge the table permanently.** `decideFor`'s persona branches never consulted the
   legal action set, and `bookAction`'s fallback ranked only stand vs hit. Split aces with a resplit
   available offer exactly `['split', 'stand']`, so Mimic-the-Dealer Mike hit them and By-the-Book
@@ -16,6 +17,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
   setting and split cap. A persona now states a preference and one shared `clampToLegal` — the same
   function the advisor already used, moved into the engine — picks the best action actually on
   offer.
+=======
+- **The EV model was deck-blind, and said single deck was the worse game.** `PROB` was a fixed
+  infinite-deck vector and `distFor` was keyed on `up|h17|peek`, so `rules.decks` never reached the
+  play model — `generateChart(1 deck)` and `generateChart(8 decks)` were byte-for-byte identical.
+  `houseEdge()` saw the deck count only in its three-card deal layer, which captures the
+  dealer-natural effect and none of the removal effects during play, so it priced one deck at
+  **0.86%** against eight decks at **0.55%**: the inverse of the single most famous fact about deck
+  count, shown in red on the Learn page as you dragged the slider toward single deck.
+
+  Draw probabilities now come from `probsFor(decks, removed)`, and the composition that governs a
+  decision is carried as a value (`EvalContext`) built once by `contextForHand` — never as
+  per-call-site defaults, which drift. `bookPlay` is the single entry point the chart, the advisor,
+  the bots, both drills and the Bet Lab all call, so a hand cannot be priced one way on the Learn
+  page and another at the table; `oneComposition.test.ts` fails if they ever disagree, including
+  when Split is unavailable.
+
+  Edges are monotonic in deck count and land on the published tables — **2D 0.18% · 4D 0.35% ·
+  6D 0.40% · 8D 0.43%**, single-deck 6:5 1.58%. Multi-deck charts move one cell (`soft 15 v 4`
+  H→D, which every published chart doubles); the single-deck chart gains six book plays and loses
+  one (`soft 18 v 2`), recorded as a regression rather than dressed up as a limitation.
+
+- **Surfaces stopped printing a sign the model cannot resolve.** Removal applied once at the top of
+  the hand overshoots by ~0.15pp at one deck — enough to make a 1-deck 3:2 house edge come out
+  *negative*. `edgeResolution()` states what the model resolves (0.05pp from two decks, 0.2pp at
+  one), the readouts print `~even` inside it, and `modelledEdge()` keeps the artifact out of money
+  math rather than letting a flat bet price as +EV.
+
+Spec: `docs/superpowers/specs/2026-09-05-deck-aware-ev-design.md`
+>>>>>>> 5bde206 (fix(engine): deck-aware EV via removal-aware draw probabilities)
 
 
 ## [0.5.0] — 2026-07-16

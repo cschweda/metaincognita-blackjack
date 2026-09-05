@@ -6,8 +6,8 @@ import type { RuleSet } from './engine/rules'
 import { BlackjackGame } from './engine/round'
 import { CountTracker, advantageEstimate } from './engine/counting'
 import { decideFor } from './engine/bots'
-import { actionEVs } from './engine/basicStrategy'
-import { handTotal } from './engine/hand'
+import { actionEVs, contextForHand } from './engine/basicStrategy'
+import { handTotal, isPair } from './engine/hand'
 import { bucketOf } from './engine/cards'
 
 export interface BetRamp {
@@ -151,9 +151,13 @@ function playRound(cg: CountedGame, betCents: number, rules: RuleSet, bankrollCe
       }
       if (action === 'double' || action === 'split') {
         const { total, soft } = handTotal(hand.cards)
+        // contextForHand, not evalContext: a pair must be priced against the same shoe the chart
+        // and the advisor use, or the lab reports risk-of-ruin for a player the app never teaches
+        const ctx = contextForHand(
+          rules, bucketOf(game.dealerUp!),
+          isPair(hand.cards) ? bucketOf(hand.cards[0]!) : null)
         const evs = actionEVs(
-          { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit },
-          bucketOf(game.dealerUp!), rules)
+          { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit }, ctx)
         action = evs.stand >= evs.hit ? 'stand' : 'hit'
       }
     }

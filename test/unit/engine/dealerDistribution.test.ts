@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dealerDistribution, BUCKETS } from '../../../app/utils/engine/basicStrategy'
+import { evalContext, dealerDistribution, BUCKETS } from '../../../app/utils/engine/basicStrategy'
 import { PRESETS, cloneRules } from '../../../app/utils/engine/rules'
 import type { Bucket } from '../../../app/utils/engine/cards'
 
@@ -13,7 +13,7 @@ const H17 = (() => {
 const OUTCOMES = [17, 18, 19, 20, 21, 'bust', 'blackjack'] as const
 
 function mass(up: Bucket, rules = S17, conditioned = false): number {
-  const d = dealerDistribution(up, rules, conditioned)
+  const d = dealerDistribution(evalContext(rules, up), conditioned)
   return OUTCOMES.reduce((sum, k) => sum + d[k], 0)
 }
 
@@ -39,25 +39,39 @@ describe('dealerDistribution — canonical S17 bust rates (±0.02)', () => {
   for (const [up, expected] of pins) {
     it(`upcard ${up} busts ≈ ${expected}`, () => {
       const conditioned = up === 11
-      expect(Math.abs(dealerDistribution(up, S17, conditioned).bust - expected)).toBeLessThan(0.02)
+      expect(Math.abs(dealerDistribution(evalContext(S17, up), conditioned).bust - expected)).toBeLessThan(0.02)
     })
   }
 })
 
 describe('dealerDistribution — blackjack handling', () => {
-  it('unconditioned: P(BJ | up=A) = 16/52, P(BJ | up=T) = 4/52', () => {
-    expect(dealerDistribution(11, S17, false).blackjack).toBeCloseTo(16 / 52, 9)
-    expect(dealerDistribution(10, S17, false).blackjack).toBeCloseTo(4 / 52, 9)
+  // Composition-aware since round four: the upcard is removed from the shoe before the hole is
+  // drawn, so on a 6-deck shoe P(ten | ace up) is 96/311, not the fresh-shoe 16/52.
+  it('unconditioned: P(BJ | up=A) = 96/311, P(BJ | up=T) = 24/311 on a 6-deck shoe', () => {
+    expect(dealerDistribution(evalContext(S17, 11), false).blackjack).toBeCloseTo(96 / 311, 9)
+    expect(dealerDistribution(evalContext(S17, 10), false).blackjack).toBeCloseTo(24 / 311, 9)
+  })
+
+  it('the removal effect shrinks as decks are added', () => {
+    const oneDeck = cloneRules(S17)
+    oneDeck.decks = 1
+    const eightDeck = cloneRules(S17)
+    eightDeck.decks = 8
+    const one = dealerDistribution(evalContext(oneDeck, 11), false).blackjack
+    const eight = dealerDistribution(evalContext(eightDeck, 11), false).blackjack
+    expect(one).toBeCloseTo(16 / 51, 9)
+    expect(eight).toBeCloseTo(128 / 415, 9)
+    expect(one).toBeGreaterThan(eight) // fewer decks, the removed ace matters more
   })
 
   it('conditioned (peek says no BJ): blackjack mass is zero, rest renormalized', () => {
-    const d = dealerDistribution(11, S17, true)
+    const d = dealerDistribution(evalContext(S17, 11), true)
     expect(d.blackjack).toBe(0)
     expect(mass(11, S17, true)).toBeCloseTo(1, 9)
   })
 
   it('two-card 21 with a non-ace/ten upcard is 21, not blackjack', () => {
-    const d = dealerDistribution(5, S17, false)
+    const d = dealerDistribution(evalContext(S17, 5), false)
     expect(d.blackjack).toBe(0)
     expect(d['21']).toBeGreaterThan(0)
   })
@@ -65,12 +79,12 @@ describe('dealerDistribution — blackjack handling', () => {
 
 describe('dealerDistribution — H17 effects', () => {
   it('H17 raises the ace bust rate (dealer re-risks soft 17)', () => {
-    expect(dealerDistribution(11, H17, false).bust)
-      .toBeGreaterThan(dealerDistribution(11, S17, false).bust)
+    expect(dealerDistribution(evalContext(H17, 11), false).bust)
+      .toBeGreaterThan(dealerDistribution(evalContext(S17, 11), false).bust)
   })
 
   it('H17 lowers P(17) for a 6 upcard', () => {
-    expect(dealerDistribution(6, H17, false)['17'])
-      .toBeLessThan(dealerDistribution(6, S17, false)['17'])
+    expect(dealerDistribution(evalContext(H17, 6), false)['17'])
+      .toBeLessThan(dealerDistribution(evalContext(S17, 6), false)['17'])
   })
 })

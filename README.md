@@ -21,7 +21,9 @@ counting practice on rules taken from official gaming-commission documents, not 
 ## Features
 
 - **Five rulebook-cited presets + full custom editor** — MA 205 CMR, Bally's AC, WA card room,
-  Vegas Strip, single-deck 6:5; every preset shows its computed house edge (model estimate)
+  Vegas Strip, single-deck 6:5; every preset shows its computed house edge — deck-count aware and
+  within a few hundredths of published tables (2D 0.18% · 4D 0.35% · 6D 0.40% · 8D 0.43%), reading
+  "~even" where the model cannot resolve the sign rather than inventing one
 - **Casino procedure or quick play** — paced card-by-card dealing with dealer announcements,
   burn/cut-card/penetration mechanics, or instant resolution; one engine underneath
 - **Real-time advisor** — coach / feedback / exam intensities, EV table per decision, mistake
@@ -33,9 +35,9 @@ counting practice on rules taken from official gaming-commission documents, not 
   shuffle quizzes, accuracy tracking
 - **History & analysis** — every decision graded ✓/✗ vs book with cost and RC/TC; adherence by
   category, top repeated mistakes, EV lost vs actual P&L, side-bet ledger, bot P&L by persona
-- **Learn page** — strategy chart generated from the EV engine for the active rules (tap a cell
-  for the math), rules lab with live edge deltas, side-bet pay tables, game history, myths,
-  procedure guide
+- **Learn page** — strategy chart generated from the EV engine for the active rules, deck count
+  included, and labelled with the model it came from (tap a cell for the math); rules lab with
+  live edge deltas, side-bet pay tables, game history, myths, procedure guide
 - **Six drills** — Strategy Flash (weighted toward your mistakes), Count the Cards, Pair
   Cancellation (read pairs, not cards), True-Count Conversion, Deviation Quiz, and the
   Full-Deck Countdown — the classic self-verifying speed benchmark (under 30s is the pro bar)

@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import type { Card } from '../utils/engine/cards'
 import { advantageEstimate, hiLoValue } from '../utils/engine/counting'
-import { houseEdge } from '../utils/engine/basicStrategy'
+import { modelledEdge } from '../utils/engine/basicStrategy'
 import { useBlackjackStore } from '../stores/useBlackjackStore'
 
 // ── module state (client singleton, mirrors useGameLoop's pattern) ───────────
@@ -66,7 +66,9 @@ export function useCounting() {
    *  with, so both surfaces read one number. Educational estimate, not betting advice (§4.8). */
   const baseEdge = computed(() => {
     const rules = store.settings?.rules
-    return rules ? houseEdge(rules) : undefined
+    // modelledEdge, not houseEdge: a raw negative at one deck is a model artifact, and feeding it
+    // here made the panel report a player advantage at TC 0
+    return rules ? modelledEdge(rules) : undefined
   })
   const advantage = computed(() => advantageEstimate(tc.value, baseEdge.value))
 

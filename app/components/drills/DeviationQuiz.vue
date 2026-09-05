@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Deviation } from '~/utils/engine/counting'
 import { FAB_4, ILLUSTRIOUS_18, deviationActive, deviationThreshold } from '~/utils/engine/counting'
-import { bestAction, bestActionFull } from '~/utils/engine/basicStrategy'
+import { bookPlay } from '~/utils/engine/basicStrategy'
 import { PRESETS } from '~/utils/engine/rules'
 
 const props = withDefaults(defineProps<{
@@ -15,10 +15,9 @@ const surrenderLegal = computed(() => rules.value.surrender === 'late')
 /** The book side comes from the EV engine under the active rules — computed, not transcribed. */
 function bookPlayFor(dev: Deviation): string {
   if (dev.id === 'insurance') return 'decline'
-  if (dev.pair !== null) {
-    return bestActionFull({ pair: dev.pair, total: dev.total, soft: dev.soft }, dev.up, rules.value).action
-  }
-  return bestAction({ total: dev.total, soft: dev.soft, twoCards: true, fromSplit: false }, dev.up, rules.value).action
+  return bookPlay(rules.value, dev.up, {
+    total: dev.total, soft: dev.soft, twoCards: true, fromSplit: false, pair: dev.pair
+  }).action
 }
 
 /** Only quiz deviations that are real deviations under the active rules: the play must be

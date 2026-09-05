@@ -1,10 +1,10 @@
-import type { Card } from './cards'
+import type { Bucket, Card } from './cards'
 import { bucketOf } from './cards'
 import type { RuleSet } from './rules'
 import type { Action, PlayHand } from './hand'
 import { handTotal, isPair, legalActions } from './hand'
 import type { RNG } from './rng'
-import { actionEVs, bestAction, bestActionFull, clampToLegal } from './basicStrategy'
+import { bookPlay, clampToLegal } from './basicStrategy'
 import type { ActionEVs } from './basicStrategy'
 import { dealerShouldDraw } from './dealer'
 
@@ -25,20 +25,26 @@ function bookAction(hand: PlayHand, handCount: number, up: Card, rules: RuleSet)
   if (legal.length === 0) return 'stand'
   if (legal.length === 1) return legal[0]!
   const upB = bucketOf(up)
-  const { total, soft } = handTotal(hand.cards)
-  const rec = isPair(hand.cards) && legal.includes('split')
-    ? bestActionFull({ pair: bucketOf(hand.cards[0]!), total, soft }, upB, rules)
-    : bestAction({ total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit }, upB, rules)
+  const rec = bookHand(hand, upB, rules)
   return clampToLegal(rec.action as Action, rec.evs, legal)
 }
 
-/** Book EVs for this hand, used to rank the legal alternatives when a persona wants something the
- *  table does not offer. */
-function bookEVs(hand: PlayHand, up: Card, rules: RuleSet): ActionEVs {
+/** The book's read of this hand, through the single pricing entry point. */
+function bookHand(hand: PlayHand, upB: Bucket, rules: RuleSet) {
   const { total, soft } = handTotal(hand.cards)
-  return actionEVs(
-    { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit },
-    bucketOf(up), rules)
+  return bookPlay(rules, upB, {
+    total,
+    soft,
+    twoCards: hand.cards.length === 2,
+    fromSplit: hand.fromSplit,
+    // by the cards, never by legality — clampToLegal drops an unavailable split afterwards
+    pair: isPair(hand.cards) ? bucketOf(hand.cards[0]!) : null
+  })
+}
+
+/** Book EVs, used to rank the legal alternatives when a persona wants something not on offer. */
+function bookEVs(hand: PlayHand, upB: Bucket, rules: RuleSet): ActionEVs {
+  return bookHand(hand, upB, rules).evs
 }
 
 function flatBet(base: number): number {
@@ -133,7 +139,7 @@ export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, deal
   // but the quirk branches below never consulted `legal` at all — Mike would hit split aces, where
   // the only legal actions are split and stand, and the engine refuses it (see botLegality.test).
   const clamp = (preferred: Action): Action =>
-    legal.includes(preferred) ? preferred : clampToLegal(preferred, bookEVs(hand, dealerUp, rules), legal)
+    legal.includes(preferred) ? preferred : clampToLegal(preferred, bookEVs(hand, bucketOf(dealerUp), rules), legal)
   switch (id) {
     case 'bea':
     case 'ivan':
