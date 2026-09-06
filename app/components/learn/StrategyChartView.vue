@@ -139,15 +139,18 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
       H hit · S stand · D double (else hit) · Ds double (else stand) · P split · Rh/Rs/Rp surrender (else hit/stand/split)
     </p>
     <p
-      class="text-[10px] leading-relaxed text-neutral-400"
+      class="text-[11px] leading-relaxed text-neutral-400"
       data-testid="chart-model-note"
     >
       Generated from this table's rules by the EV engine: draw probabilities come from a
       {{ rules.decks }}-deck shoe with the dealer's upcard removed — and, on pair rows, your pair
       too. It is a <strong class="text-neutral-200">total-dependent</strong> chart: it reads your
-      total, not which cards made it. A few single-deck plays are composition-dependent exceptions
-      this model does not reach; the best known is 7,7 vs 10, which the single-deck book stands and
-      this chart does not.
+      total, not which cards made it.
+      <template v-if="rules.decks === 1">
+        Two single-deck cells it does not reach: 7,7 vs 10, which the book stands (no
+        fixed-composition model reaches it), and A,7 vs 2, which the book doubles — a cell this
+        model lost to gain six others.
+      </template>
     </p>
   </div>
 </template>

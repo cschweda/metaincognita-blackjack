@@ -21,9 +21,10 @@ counting practice on rules taken from official gaming-commission documents, not 
 ## Features
 
 - **Five rulebook-cited presets + full custom editor** — MA 205 CMR, Bally's AC, WA card room,
-  Vegas Strip, single-deck 6:5; every preset shows its computed house edge — deck-count aware and
-  within a few hundredths of published tables (2D 0.18% · 4D 0.35% · 6D 0.40% · 8D 0.43%), reading
-  "~even" where the model cannot resolve the sign rather than inventing one
+  Vegas Strip, single-deck 6:5; every preset shows its computed house edge (model estimate) —
+  deck-count aware, within a few hundredths of published tables from two decks up
+  (2D 0.18% · 4D 0.35% · 6D 0.40% · 8D 0.43%) and about 0.15pp player-favourable at one deck,
+  where it reads "~even" rather than inventing a sign it cannot resolve
 - **Casino procedure or quick play** — paced card-by-card dealing with dealer announcements,
   burn/cut-card/penetration mechanics, or instant resolution; one engine underneath
 - **Real-time advisor** — coach / feedback / exam intensities, EV table per decision, mistake

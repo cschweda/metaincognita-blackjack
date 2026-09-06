@@ -120,8 +120,12 @@ function addCard(total: number, acesAsEleven: number, bucket: Bucket): [number, 
   return [t, aces]
 }
 
+/** DealerDist's keys never change; Object.keys() was rebuilding this array on every blend —
+ *  ~56k allocations per houseEdge and ~14% of engine self time (round-five review). */
+const DIST_KEYS: Array<keyof DealerDist> = [17, 18, 19, 20, 21, 'bust', 'blackjack']
+
 function blend(into: DealerDist, from: DealerDist, weight: number): void {
-  for (const k of Object.keys(from) as Array<keyof DealerDist>) into[k] += from[k] * weight
+  for (const k of DIST_KEYS) into[k] += from[k] * weight
 }
 
 /**
@@ -318,6 +322,9 @@ export function actionEVs(state: TotalState, ctx: EvalContext): ActionEVs {
   const { rules } = ctx
   const d = distFor(ctx)
   const probs = probsFor(rules.decks, ctx.known)
+  // a fresh Map per call, deliberately: sharing one across calls was measured SLOWER here
+  // (94ms -> 131ms for six preset edges), because houseEdge evaluates ~550 distinct compositions
+  // and a cross-call cache mostly misses while still paying to build its key
   const memo = new Map<string, number>()
   const evs: ActionEVs = {
     stand: standEV(state.total, d),
