@@ -3,6 +3,8 @@ import { edgeResolution, houseEdge, modelledEdge } from '../../app/utils/engine/
 import { formatAdvantage, formatHouseEdge } from '../../app/utils/format'
 import { advantageEstimate } from '../../app/utils/engine/counting'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
+import { rampStats } from '../../app/utils/betRamp'
+import type { TcFrequencies } from '../../app/utils/betRamp'
 
 // The model runs ~0.15pp player-favourable at one deck, far enough to flip the SIGN of a 1-deck
 // 3:2 house edge. Every surface that prints an edge must refuse to resolve what the model cannot,
@@ -65,5 +67,27 @@ describe('formatters', () => {
     expect(formatAdvantage(0.0125, 0.0005)).toBe('+1.25%')
     expect(formatAdvantage(-0.004, 0.0005)).toBe('−0.40%')
     expect(formatAdvantage(0, 0.0005)).toBe('~even')
+  })
+})
+
+describe('the lab prices ramps off the guarded edge', () => {
+  it('a flat bet on a 1-deck 3:2 table is never +EV', () => {
+    // modelledEdge's own docstring names the Bet Lab as the surface it protects; the lab read the
+    // raw figure anyway. A raw negative makes advantageEstimate positive at TC 0, so a FLAT ramp
+    // priced as profitable with a finite N0 (round-five review).
+    const rules = oneDeck()
+    const flat: TcFrequencies = { freq: [1, 0, 0, 0, 0, 0], meanTc: [0, 0, 0, 0, 0, 0] }
+    const ramp = {
+      unitCents: 2500, bankrollCents: 1_000_000, roundsPerHour: 70, wongOut: false,
+      steps: [1, 1, 1, 1, 1, 1]
+    }
+    const guarded = rampStats(ramp, flat, modelledEdge(rules), rules)
+    expect(guarded.evPerRoundCents).toBeLessThanOrEqual(0)
+    expect(guarded.n0Rounds).toBe(Infinity)
+    expect(guarded.ruin).toBe(1)
+
+    // and the raw figure is what would have made it look profitable
+    const raw = rampStats(ramp, flat, houseEdge(rules), rules)
+    expect(raw.evPerRoundCents).toBeGreaterThan(0)
   })
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BetRamp, SimResult, TcFrequencies } from '~/utils/betRamp'
 import { DEFAULT_RAMP, rampStats, simulateTrajectories, tcFrequencies } from '~/utils/betRamp'
-import { houseEdge } from '~/utils/engine/basicStrategy'
+import { modelledEdge } from '~/utils/engine/basicStrategy'
 import { PRESETS } from '~/utils/engine/rules'
 import { randomSeed } from '~/utils/engine/rng'
 import { formatCents } from '~/utils/format'
@@ -157,7 +157,10 @@ watch(presetKey, () => {
 
 const stats = computed(() => {
   if (!freqs.value) return null
-  return rampStats(ramp, freqs.value, houseEdge(rules.value), rules.value)
+  // modelledEdge, not houseEdge: a raw negative 1-deck figure makes advantageEstimate positive at
+  // TC 0, which prices a FLAT BET as +EV — measured +$2.67/hour with a finite N0 and ruin 0.40
+  // where the honest answer is 0, 0, none and 1.0 (round-five review)
+  return rampStats(ramp, freqs.value, modelledEdge(rules.value), rules.value)
 })
 
 // ── real simulation (worker-driven, cancellable) ──────────────────────────────

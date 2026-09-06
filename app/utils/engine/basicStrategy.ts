@@ -149,14 +149,19 @@ class GenerationCache<K, V> {
     const hit = this.live.get(key)
     if (hit !== undefined) return hit
     const stale = this.old.get(key)
-    // promote through set(), not straight into `live` — promoting raw skipped the rotation check
-    // that lives only in set(), so a read-heavy pass over a demoted working set grew `live` past
-    // the limit unbounded and the documented 2x ceiling held nowhere (round-four review)
-    if (stale !== undefined) this.set(key, stale)
+    if (stale === undefined) return undefined
+    // Promote WITHOUT rotating. Routing this through set() let a pure read trip the rotation and
+    // discard the very generation it was reading from — proven at LIMIT=10: one get() left
+    // live=[A3], old=[B0..B9], and a key present a moment earlier returned undefined. That is the
+    // mid-computation eviction the two-generation design exists to prevent (round-five review).
+    // Deleting from `old` also stops a promoted key occupying a slot in both generations.
+    this.old.delete(key)
+    this.live.set(key, stale)
     return stale
   }
 
   set(key: K, value: V): V {
+    // rotate only on a genuine miss, and only when the live generation is actually full
     if (this.live.size >= MEMO_LIMIT) {
       this.old = this.live
       this.live = new Map()
