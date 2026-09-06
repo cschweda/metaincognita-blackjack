@@ -52,7 +52,7 @@ export function adviseHand(
 ): AdvisorRecommendation {
   const upB = bucketOf(up)
   const { total, soft } = handTotal(input.cards)
-  const pairHand = isPair(input.cards) && legal.includes('split')
+  const isPairHand = isPair(input.cards)
   const rec = bookPlay(rules, upB, {
     total, soft,
     twoCards: input.cards.length === 2,
@@ -61,13 +61,24 @@ export function adviseHand(
     pair: isPair(input.cards) ? bucketOf(input.cards[0]!) : null
   })
   const book = clampToLegal(rec.action as Action, rec.evs, legal)
+  // Only price what the table is offering. AdvisorPanel renders this map verbatim, sorted
+  // descending with no filtering, and useGameLoop writes it into every persisted DecisionRecord —
+  // so an unavailable action here becomes a phantom row in the coach panel and in history forever,
+  // and buildReasoning picks it as the runner-up ("Hit: EV -53.5% beats split at -47.6%", naming a
+  // play with no button and stating the comparison backwards).
+  const offered = Object.fromEntries(
+    (Object.entries(rec.evs) as Array<[Action, number | undefined]>)
+      .filter(([a, v]) => v !== undefined && legal.includes(a))
+  ) as Partial<Record<Action, number>>
 
   let action = book
   let deviation: Deviation | null = null
   if (advanced) {
     const pool = rules.surrender === 'late' ? [...ILLUSTRIOUS_18, ...FAB_4] : ILLUSTRIOUS_18
     const dev = deviationFor(
-      { total, soft, pair: pairHand ? bucketOf(input.cards[0]!) : null }, upB, tc, pool,
+      // by the cards, exactly as the book EVs above — deriving this from legality instead made
+      // the same 8,8 file as a pair below the split cap and as a hard 16 at it
+      { total, soft, pair: isPairHand ? bucketOf(input.cards[0]!) : null }, upB, tc, pool,
       legal.includes('surrender'))
     if (dev && dev.play !== 'take-insurance' && legal.includes(dev.play as Action)) {
       deviation = dev
@@ -78,9 +89,9 @@ export function adviseHand(
   return {
     action,
     book,
-    evs: rec.evs as Partial<Record<Action, number>>,
+    evs: offered,
     deviation,
-    reasoning: buildReasoning(book, rec.evs as Partial<Record<Action, number>>, deviation, tc)
+    reasoning: buildReasoning(book, offered, deviation, tc)
   }
 }
 

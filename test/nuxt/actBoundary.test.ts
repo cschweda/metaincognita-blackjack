@@ -42,7 +42,7 @@ describe('one bad decision cannot wedge the table', () => {
   it('recovers when a persona returns an action the table refuses', async () => {
     const { useGameLoop } = await import('../../app/composables/useGameLoop')
     const loop = useGameLoop()
-    loop.startSession(settings(), 500_000)
+    loop.startSession(settings(), 500_000, 4242) // seeded: an unseeded shoe made this flaky
 
     let rejection: unknown = null
     const onRejection = (e: PromiseRejectionEvent) => {
@@ -53,8 +53,9 @@ describe('one bad decision cannot wedge the table', () => {
     loop.beginRound(2500, {})
     // drive the hero out of the way; the bots are the ones returning the illegal action
     let guard = 0
-    while (loop.phase.value === 'playerTurns' && guard++ < 40) {
-      if (loop.canAct.value) loop.act('stand')
+    while (loop.phase.value !== 'complete' && guard++ < 40) {
+      if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+      else if (loop.canAct.value) loop.act('stand')
       else break
     }
     await new Promise(resolve => setTimeout(resolve, 0))
