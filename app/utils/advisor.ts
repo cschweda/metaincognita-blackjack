@@ -79,9 +79,14 @@ export function adviseHand(
   if (advanced) {
     const pool = rules.surrender === 'late' ? [...ILLUSTRIOUS_18, ...FAB_4] : ILLUSTRIOUS_18
     const dev = deviationFor(
-      // by the cards, exactly as the book EVs above — deriving this from legality instead made
-      // the same 8,8 file as a pair below the split cap and as a hard 16 at it
-      { total, soft, pair: isPairHand ? bucketOf(input.cards[0]!) : null }, upB, tc, pool,
+      // Legality-gated ON PURPOSE, and NOT the same question the pricing pair answers.
+      // deviationFor's contract (counting.ts) is explicit: "callers pass pair: null when the pair
+      // cannot be split", because an unsplittable 8,8 IS a hard 16 and must pick up the hard-16
+      // index. Deriving this from the cards instead cost the counter their Illustrious-18 play —
+      // 8,8 v T at the split cap returned hit/no-deviation where the book stands, and the trainer
+      // then graded the correct stand as a mistake and fed it to the drills.
+      { total, soft, pair: isPairHand && legal.includes('split') ? bucketOf(input.cards[0]!) : null },
+      upB, tc, pool,
       legal.includes('surrender'))
     if (dev && dev.play !== 'take-insurance' && legal.includes(dev.play as Action)) {
       deviation = dev

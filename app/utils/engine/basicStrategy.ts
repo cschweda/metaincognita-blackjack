@@ -477,9 +477,15 @@ export interface BookHand {
   fromSplit: boolean
   /** The pair's bucket when this hand is governed by a pair row, else null. */
   pair: Bucket | null
-  /** Hands already formed at this spot. Without it splitEV always priced the FIRST split, so a
-   *  player on their fourth hand saw a resplit ladder that no longer exists — 8,8 v 6 at six
-   *  decks reads +40.6% when the real fourth-hand value is +32.7% (round-five review). */
+  /**
+   * Hands that will exist at this spot AFTER the split — hence the default of 2 for a first
+   * split, matching splitEV. Callers counting hands BEFORE the split must pass `length + 1`:
+   * postSplitHandEV gates on `handsFormed < maxSplitHands` exactly as legalActions gates on
+   * `handCountAtSpot < maxSplitHands`, but legalActions is asked one step earlier.
+   *
+   * Without it splitEV always priced the FIRST split, so a player deep in a resplit saw a ladder
+   * that no longer exists; passing it off by one priced one rung MORE than the rules offer.
+   */
   handsFormed?: number
 }
 

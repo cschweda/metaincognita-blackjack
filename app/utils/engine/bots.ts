@@ -24,7 +24,7 @@ function bookAction(hand: PlayHand, handCount: number, up: Card, rules: RuleSet)
   if (legal.length === 0) return 'stand'
   if (legal.length === 1) return legal[0]!
   const upB = bucketOf(up)
-  const rec = bookHand(hand, upB, rules, handCount)
+  const rec = bookHand(hand, upB, rules, handCount + 1) // hands AFTER the split
   return clampToLegal(rec.action as Action, rec.evs, legal)
 }
 
