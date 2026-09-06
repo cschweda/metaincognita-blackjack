@@ -294,6 +294,38 @@ function botSpotAssignments(): Array<{ spotId: number, id: PersonaId }> {
     .filter((b): b is { spotId: number, id: PersonaId } => b.spotId !== undefined)
 }
 
+/**
+ * Play a bot's decision, and never let one bad decision wedge the table.
+ *
+ * clampToLegal (bots.ts) makes an illegal choice unreachable today. This is the boundary that
+ * decides what happens when it is not: `game.act` ran here with no try/catch and every caller
+ * launches `void pump()`, so an IllegalActionError escaped as an unhandled rejection with
+ * `pumping` and `queueIdle` already reset — the phase stayed 'playerTurns', nothing re-entered
+ * this function, and the table hung permanently. It survived reload too, because restoreSession
+ * never pumps, so the only way out was endSession(), which wipes the session.
+ *
+ * A refused action falls back to any legal one rather than stranding the round. Returns false only
+ * when the engine will accept nothing at all, and says so out loud rather than hanging silently.
+ */
+function actForBot(spotId: number, action: Action): boolean {
+  if (!game) return false
+  try {
+    game.act(spotId, action)
+    return true
+  } catch {
+    const fallback = game.legalFor(spotId)[0]
+    if (fallback) {
+      try {
+        game.act(spotId, fallback)
+        return true
+      } catch { /* the engine will not accept anything — fall through to the notice */ }
+    }
+    pushAnnouncement('A play was refused — the round cannot continue')
+    queueIdle.value = true
+    return false
+  }
+}
+
 function afterQueueDrained(): void {
   if (!game) return
   const store = useBlackjackStore()
@@ -327,7 +359,7 @@ function afterQueueDrained(): void {
       }
       const hand = spot.hands[spot.activeHandIndex]!
       const action = decideFor(bot.id, hand, spot.hands.length, game.dealerUp!, store.settings!.rules)
-      game.act(spot.spotId, action)
+      if (!actForBot(spot.spotId, action)) return
       void pump()
       return
     }
