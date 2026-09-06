@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bookPlay } from '../../../app/utils/engine/basicStrategy'
+import { bookPlay, dealerDistribution, evalContext } from '../../../app/utils/engine/basicStrategy'
 import { PRESETS, cloneRules } from '../../../app/utils/engine/rules'
 import { BlackjackGame } from '../../../app/utils/engine/round'
 import type { CardSource } from '../../../app/utils/engine/round'
@@ -51,40 +51,56 @@ function settledSurrender(rules: ReturnType<typeof cloneRules>, holeRank: number
 }
 
 describe('the model prices what the engine settles', () => {
-  for (const dealerPeek of [true, false]) {
-    it(`surrender is worth the same to both, peek=${dealerPeek}`, () => {
-      const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
-      rules.dealerPeek = dealerPeek
-      rules.surrender = 'late'
+  it('a peeked surrender is a flat half, in both the model and the engine', () => {
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.dealerPeek = true
+    rules.surrender = 'late'
+    const priced = bookPlay(rules, 11, {
+      total: 16, soft: false, twoCards: true, fromSplit: false, pair: null
+    }).evs.surrender!
+    expect(priced).toBeCloseTo(-0.5, 12)
+    for (const hole of [13, 5]) {
+      const net = settledSurrender(rules, hole)
+      if (Number.isFinite(net)) expect(net, `hole ${hole}`).toBeCloseTo(priced, 12)
+    }
+  })
 
-      const priced = bookPlay(rules, 11, {
-        total: 16, soft: false, twoCards: true, fromSplit: false, pair: null
-      }).evs.surrender!
+  it('a no-peek surrender is priced as the EXPECTATION of the two settlements', () => {
+    // The engine can settle a held surrender two ways — full wager to a natural, half otherwise —
+    // so the model's single number must be the probability-weighted blend of exactly those two.
+    // Asserting equality with either one alone is what let a flat -0.5 diverge from the engine.
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.dealerPeek = false
+    rules.surrender = 'late'
 
-      // a hole that makes a natural, and one that does not — the engine must pay the model's
-      // price in BOTH, or the price is an average of outcomes the player is graded against
-      const withNatural = settledSurrender(rules, 13) // king: dealer has blackjack
-      const withoutNatural = settledSurrender(rules, 5)
+    const pNatural = dealerDistribution(evalContext(rules, 11), false).blackjack
+    expect(pNatural, 'an ace up must leave a live natural under no-peek').toBeGreaterThan(0)
 
-      expect(withoutNatural, 'no natural').toBeCloseTo(priced, 10)
-      if (Number.isFinite(withNatural)) {
-        expect(withNatural, 'dealer natural — model and engine must not disagree here')
-          .toBeCloseTo(priced, 10)
-      }
-    })
-  }
+    const withNatural = settledSurrender(rules, 13)
+    const withoutNatural = settledSurrender(rules, 5)
+    expect(withNatural, 'a natural takes the whole wager (MA §8)').toBeCloseTo(-1, 12)
+    expect(withoutNatural).toBeCloseTo(-0.5, 12)
 
-  it('a surrendered hand always returns exactly half under these rules', () => {
+    const priced = bookPlay(rules, 11, {
+      total: 16, soft: false, twoCards: true, fromSplit: false, pair: null
+    }).evs.surrender!
+    const expected = pNatural * withNatural + (1 - pNatural) * withoutNatural
+    expect(priced, 'the price is the blend of what the engine can actually do')
+      .toBeCloseTo(expected, 12)
+  })
+
+  it('holds across presets and both peek settings', () => {
     for (const preset of Object.values(PRESETS)) {
       const rules = cloneRules(preset)
       rules.surrender = 'late'
       for (const dealerPeek of [true, false]) {
         rules.dealerPeek = dealerPeek
-        for (const hole of [13, 5]) {
-          const net = settledSurrender(rules, hole)
-          if (Number.isFinite(net)) {
-            expect(net, `${rules.name} peek=${dealerPeek} hole=${hole}`).toBeCloseTo(-0.5, 10)
-          }
+        const natural = settledSurrender(rules, 13)
+        const plain = settledSurrender(rules, 5)
+        if (Number.isFinite(plain)) expect(plain, `${rules.name} peek=${dealerPeek}`).toBeCloseTo(-0.5, 12)
+        if (Number.isFinite(natural)) {
+          expect(natural, `${rules.name} peek=${dealerPeek} vs a natural`)
+            .toBeCloseTo(dealerPeek ? -0.5 : -1, 12)
         }
       }
     }

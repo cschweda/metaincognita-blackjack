@@ -347,7 +347,14 @@ export function actionEVs(state: TotalState, ctx: EvalContext): ActionEVs {
   // is known, per MA §8's escrow). Model and engine have to move together; pricing a full-wager
   // loss the engine never takes would grade a correct surrender as a mistake and charge the
   // player for it. It lands as its own change, with round.ts.
-  if (state.twoCards && !state.fromSplit && rules.surrender === 'late') evs.surrender = -0.5
+  if (state.twoCards && !state.fromSplit && rules.surrender === 'late') {
+    // Half the wager back — unless a live natural can still take all of it. `d.blackjack` is 0
+    // whenever a peek has already cleared it, so this collapses to a flat -0.5 at a peeking table
+    // and matches round.ts's escrow exactly under no-peek. Pricing it flat there let surrender
+    // escape a loss every rival action pays from the unconditioned distribution: the chart
+    // recommended surrendering hard 5 vs an ace and the computed edge went negative.
+    evs.surrender = -0.5 * (1 - d.blackjack) + -1 * d.blackjack
+  }
   return evs
 }
 

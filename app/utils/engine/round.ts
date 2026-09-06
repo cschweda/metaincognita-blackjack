@@ -413,10 +413,19 @@ export class BlackjackGame {
       }
       case 'surrender': {
         hand.surrendered = true
-        hand.netResult = -Math.ceil(hand.bet / 2)
-        hand.outcome = 'surrender'
-        this.emit({ type: 'announce', text: 'Surrender — half the wager returned' })
-        this.emit({ type: 'hand-settled', spotId, handIndex: spot.activeHandIndex, outcome: 'surrender', net: hand.netResult })
+        // With a peek behind us the price is fixed at half. Under no-peek the dealer's natural is
+        // still live and MA §8's escrow settles it as a FULL loss, so the wager is held exactly
+        // the way a blackjack is — playDealerAndSettle prices it once the hole is known. The
+        // announcement has to wait too: it reaches an aria-live region, so promising "half"
+        // before the hole is turned tells a screen-reader user the opposite of what happens.
+        if (this.holeCouldMakeNatural) {
+          this.emit({ type: 'announce', text: 'Surrender — settled when the hole card is turned' })
+        } else {
+          hand.netResult = -Math.ceil(hand.bet / 2)
+          hand.outcome = 'surrender'
+          this.emit({ type: 'announce', text: 'Surrender — half the wager returned' })
+          this.emit({ type: 'hand-settled', spotId, handIndex: spot.activeHandIndex, outcome: 'surrender', net: hand.netResult })
+        }
         this.finishHand(spot, hand)
         break
       }
@@ -480,6 +489,8 @@ export class BlackjackGame {
     const pendingBlackjacks = allHands.filter(h => h.outcome === null && isBlackjack(h.cards, h.fromSplit))
     const liveHands = allHands.filter(h =>
       h.outcome === null && !h.surrendered && !isBust(h.cards) && !isBlackjack(h.cards, h.fromSplit))
+    // a surrender held under no-peek needs the natural check, but never a dealer draw
+    const pendingSurrenders = allHands.filter(h => h.outcome === null && h.surrendered)
     const insurancePending = !this.rules.dealerPeek && this.spots.some(s => s.insuranceBet !== null)
 
     // MA §12(c): no draw when it cannot matter — unless a Buster wager forces completion (MA §27(f)(3))
@@ -492,7 +503,7 @@ export class BlackjackGame {
         : this.rules
       this.dealerCards = dealerPlay(this.dealerCards, () => this.deal('dealer-draw', true), drawRules)
       this.emit({ type: 'announce', text: `Dealer ${isBust(this.dealerCards) ? 'busts' : handTotal(this.dealerCards).total}` })
-    } else if (pendingBlackjacks.length > 0 || insurancePending || this.luckyLadiesPending) {
+    } else if (pendingBlackjacks.length > 0 || pendingSurrenders.length > 0 || insurancePending || this.luckyLadiesPending) {
       this.revealHole() // no draw — only the natural check matters (MA §12(c), §24(f))
     }
 
@@ -512,7 +523,11 @@ export class BlackjackGame {
         const fiveCard21 = this.rules.fiveCard21Pays2to1 && t === 21 && hand.cards.length >= 5
         let net: number
         let outcome: NonNullable<SettledHand['outcome']>
-        if (isBlackjack(hand.cards, hand.fromSplit)) {
+        if (hand.surrendered) {
+          // held under no-peek: a natural takes the whole wager (MA §8), else the usual half
+          net = dealerNatural ? -hand.bet : -Math.ceil(hand.bet / 2)
+          outcome = 'surrender'
+        } else if (isBlackjack(hand.cards, hand.fromSplit)) {
           // held under no-peek: natural vs natural is a standoff (MA §7(b)), else 3:2/6:5
           net = dealerNatural ? 0 : Math.floor((hand.bet * bjPayNum) / bjPayDen)
           outcome = dealerNatural ? 'push' : 'blackjack'
