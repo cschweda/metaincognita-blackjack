@@ -202,5 +202,13 @@ export function validateRuleSet(rules: RuleSet): string[] {
   }
   if (![2, 3, 4].includes(rules.maxSplitHands)) errors.push('maxSplitHands must be 2, 3 or 4 (MA §11(e))')
   if (![7, 9].includes(rules.spots)) errors.push('spots must be 7 or 9 (WA §1)')
+  // A no-hole-card game has no hole to check, which is why MA §8's surrender escrow assumes late
+  // surrender is offered POST-peek (see hand.ts). Priced without one, surrender escapes the
+  // dealer-natural loss every rival action pays from the unconditioned distribution, and the
+  // computed edge goes negative at every deck count — the rules lab then advertises a
+  // player-favourable game two toggles from the default (round-six review).
+  if (rules.surrender === 'late' && !rules.dealerPeek) {
+    errors.push('late surrender needs a dealer peek — a no-hole-card game has no hole to check (MA §8)')
+  }
   return errors
 }

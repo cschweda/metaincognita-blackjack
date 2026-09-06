@@ -147,9 +147,10 @@ function codeAt(grid: unknown, row: number, up: Bucket): ChartCode {
       too. It is a <strong class="text-neutral-200">total-dependent</strong> chart: it reads your
       total, not which cards made it.
       <template v-if="rules.decks === 1">
-        Two single-deck cells it does not reach: 7,7 vs 10, which the book stands (no
-        fixed-composition model reaches it), and A,7 vs 2, which the book doubles — a cell this
-        model lost to gain six others.
+        Single-deck cells it is known to miss: 7,7 vs 10 and A,7 vs 2, and hard 8 against 5 or 6 —
+        the book doubles all three of the latter and this chart hits. A first-order model reaches
+        most of single deck's composition-dependent plays, not all of them, so treat the one-deck
+        chart as a guide rather than a book.
       </template>
     </p>
   </div>
