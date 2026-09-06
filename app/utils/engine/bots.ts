@@ -5,7 +5,6 @@ import type { Action, PlayHand } from './hand'
 import { handTotal, isPair, legalActions } from './hand'
 import type { RNG } from './rng'
 import { bookPlay, clampToLegal } from './basicStrategy'
-import type { ActionEVs } from './basicStrategy'
 import { dealerShouldDraw } from './dealer'
 
 export type PersonaId = 'bea' | 'nancy' | 'mike' | 'ivan' | 'lou'
@@ -41,11 +40,6 @@ function bookHand(hand: PlayHand, upB: Bucket, rules: RuleSet, handsFormed = 2) 
     pair: isPair(hand.cards) ? bucketOf(hand.cards[0]!) : null,
     handsFormed
   })
-}
-
-/** Book EVs, used to rank the legal alternatives when a persona wants something not on offer. */
-function bookEVs(hand: PlayHand, upB: Bucket, rules: RuleSet, handsFormed: number): ActionEVs {
-  return bookHand(hand, upB, rules, handsFormed).evs
 }
 
 function flatBet(base: number): number {
@@ -136,11 +130,18 @@ export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, deal
   if (legal.length === 0) return 'stand'
   if (legal.length === 1) return legal[0]!
   const { total, soft } = handTotal(hand.cards)
-  // A persona states a PREFERENCE; the table decides what is on offer. bookAction already clamps,
-  // but the quirk branches below never consulted `legal` at all — Mike would hit split aces, where
-  // the only legal actions are split and stand, and the engine refuses it (see botLegality.test).
+  // A persona states a PREFERENCE; the table decides what is on offer. The quirk branches below
+  // never consulted `legal` at all — Mike would hit split aces, where the only legal actions are
+  // split and stand, and the engine refuses it (see botLegality.test).
+  //
+  // The fallback must not turn one persona into another. Ranking by BOOK EV made Mike split aces,
+  // and mimicking the dealer is his entire premise — the dealer never splits. Every non-empty
+  // legal set contains 'stand' (hand.ts always offers it alongside hit, and the split-aces case is
+  // exactly ['split','stand']), so standing is both always available and what each quirk persona
+  // would actually do: Nancy never risks a bust, Mike copies a dealer who cannot split, and Lou's
+  // one rule is to stand rather than break (round-five review).
   const clamp = (preferred: Action): Action =>
-    legal.includes(preferred) ? preferred : clampToLegal(preferred, bookEVs(hand, bucketOf(dealerUp), rules, handCount), legal)
+    legal.includes(preferred) ? preferred : legal.includes('stand') ? 'stand' : legal[0]!
   switch (id) {
     case 'bea':
     case 'ivan':
