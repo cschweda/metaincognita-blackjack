@@ -62,13 +62,30 @@ const RULES_S17 = PRESETS.MA_205CMR!
 // improving the model turned the suite red and the fastest route back to green was to revert the
 // improvement — the suite defended the bug (round-four review). Comparing sets instead fails on a
 // NEW divergence and tells you to DELETE an entry that has been fixed.
+/**
+ * Cells where the published TWO-DECK book differs from the multi-deck table above. Without these
+ * the 2-deck row asserted the model must reproduce the 6/8-deck book — so `hard 9 v 2` passed with
+ * expectation and model wrong in the same direction, and the "deck-aware at every published deck
+ * count" claim was not actually tested at two decks (round-five review).
+ *
+ * PARTIAL by design: only cells verified against a published 2-deck S17 DAS LS chart belong here.
+ * Add one when you have checked it, not to make a row go green.
+ */
+const TWO_DECK_BOOK: Record<string, string> = {
+  // Published 2-deck S17 charts double hard 9 against a 2; multi-deck charts hit it. The model
+  // hits at two decks, so this surfaces as a recorded divergence below rather than a silent pass.
+  'hard:9v2': 'D'
+}
+
 const KNOWN_DIVERGENCES: Record<number, string[]> = {
   // A2 v 5: model hits (+0.1334) over double (+0.1260). Sources: (1) Wizard of Odds
   // basic-strategy-hands Q&A, "in an infinite-deck game you should hit A2 vs 5"; (2) direct EV
   // computation. Published 4-8 deck charts double; the delta (~0.007) is below model resolution.
   // 2D: A2 v 5 lands on the book here (the removal effect is bigger at two decks), so only the
   // 15 v 10 near-tie remains.
-  2: ['hard:15v10'],
+  // 2D: hard 9 v 2 — the published two-deck book doubles, the model hits. Delete this entry when
+  // the model reaches it; do not "fix" it by editing TWO_DECK_BOOK.
+  2: ['hard:15v10', 'hard:9v2'],
   4: ['soft:13v5'],
   6: ['soft:13v5'],
   8: ['soft:13v5']
@@ -89,8 +106,10 @@ function divergencesAt(decks: number): string[] {
     for (const [rowKey, rowStr] of Object.entries(expected)) {
       const cells = rowStr.split(/\s+/)
       UP.forEach((up, i) => {
+        const id = `${kind}:${rowKey}v${up}`
+        const expected = (decks === 2 && TWO_DECK_BOOK[id]) || cells[i]
         const actual = (chart[kind] as Record<number, Record<Bucket, string>>)[Number(rowKey)]![up]
-        if (actual !== cells[i]) found.push(`${kind}:${rowKey}v${up}`)
+        if (actual !== expected) found.push(id)
       })
     }
   }
@@ -139,17 +158,24 @@ describe('single-deck spot checks (model-consistent cells only)', () => {
     expect(chart.pairs[6]![2], '6,6 v 2 splits at one deck').toBe('P')
   })
 
-  // Two cells the model does not get right at one deck, for DIFFERENT reasons — the distinction
-  // matters, and the first version of this block blurred it:
+  // Two cells the model does not get right at one deck, recorded the same way the multi-deck rows
+  // are: as a SET, so reaching one deletes an entry rather than turning the suite red. Pinning
+  // them by value (`expect(...).toBe('H')`) is the anti-pattern the rewrite above exists to
+  // remove, and this block had re-introduced it eighty lines later (round-five review).
   //
-  //   7,7 v 10 — a genuine pre-existing limitation. Both the infinite-deck model and this one
-  //   hit; only removal at every draw reaches the book's stand.
-  //
-  //   A,7 v 2 — a REGRESSION this round introduced. The old model produced the book play (Ds);
-  //   the removal-aware model stands. It is a near-tie either way, but it is a cell we lost, and
-  //   the round's net at one deck is six cells gained and one lost, not six gained.
-  it('does not reach the composition-dependent exceptions (documented)', () => {
-    expect(chart.pairs[7]![10], '7,7 v 10: book stands at one deck; no fixed-composition model reaches it').toBe('H')
-    expect(chart.soft[18]![2], 'A,7 v 2: book doubles; the pre-round-four model got this right and this one does not').toBe('S')
+  //   7,7 v 10 — a pre-existing limitation. Only removal at every draw reaches the book's stand.
+  //   A,7 v 2  — a REGRESSION this work introduced; the previous model produced the book play.
+  it('diverges from the single-deck book only where recorded', () => {
+    const known = ['pairs:7v10', 'soft:18v2'].sort()
+    const book: Record<string, string> = { 'pairs:7v10': 'S', 'soft:18v2': 'Ds' }
+    const found = Object.keys(book).filter((id) => {
+      const [kind, cell] = id.split(':') as ['pairs' | 'soft', string]
+      const [row, up] = cell.split('v').map(Number) as [number, Bucket]
+      return (chart[kind] as Record<number, Record<Bucket, string>>)[row]![up] !== book[id]
+    }).sort()
+    expect(
+      found,
+      'a MISSING entry means the model reached the book play — delete it from the list'
+    ).toEqual(known)
   })
 })

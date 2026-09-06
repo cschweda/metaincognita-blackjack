@@ -38,23 +38,46 @@ describe('the advisor and the published chart never disagree', () => {
   // can differ on the same hand, the trainer marks a correct play wrong.
   const cardsFor = (total: number, soft: boolean): Card[] => soft
     ? [{ rank: 14, suit: 'spades' }, { rank: total - 11, suit: 'hearts' }]
-    : [{ rank: 10, suit: 'spades' }, { rank: total - 10, suit: 'hearts' }]
+    // pick a NON-pair composition so the hard row is graded against the hard row: 10+x above 12,
+    // and 2+x below it (hard 5-11 cannot be made from a ten at all)
+    : total >= 12
+      ? [{ rank: 10, suit: 'spades' }, { rank: total - 10, suit: 'hearts' }]
+      : [{ rank: 2, suit: 'spades' }, { rank: total - 2, suit: 'hearts' }]
+
+  const codeToAction = (cell: string): string => cell === 'P'
+    ? 'split'
+    : cell.startsWith('R') ? 'surrender' : cell.startsWith('D') ? 'double' : cell === 'S' ? 'stand' : 'hit'
 
   for (const presetKey of ['VEGAS_STRIP_6D', 'MA_205CMR', 'SINGLE_DECK_65'] as const) {
-    it(`${presetKey}: every hard and soft cell matches the advisor`, () => {
+    it(`${presetKey}: every hard cell matches the advisor`, () => {
       const rules = PRESETS[presetKey]!
       const chart = generateChart(rules)
-      for (let total = 12; total <= 20; total++) {
+      // hard 5-11 too, not just 12-20: an earlier version skipped them and every soft row, so
+      // 150 of the 230 non-pair cells were never compared — including soft 15 v 4, soft 18 v 2,
+      // soft 19 v 5 and hard 9 v 2, which is exactly where this branch moved cells.
+      // 20 is built from two tens, which is a PAIR — priced through the pair row — so the hard
+      // row is compared only up to 19.
+      for (let total = 5; total <= 19; total++) {
         for (const up of UP) {
           const rec = adviseHand(
             { cards: cardsFor(total, false), fromSplit: false },
             { rank: up === 11 ? 14 : up === 10 ? 13 : up, suit: 'clubs' },
             rules, 0, false, ALL_ACTIONS)
-          const cell = chart.hard[total]![up]
-          const chartAction = cell === 'P'
-            ? 'split'
-            : cell.startsWith('R') ? 'surrender' : cell.startsWith('D') ? 'double' : cell === 'S' ? 'stand' : 'hit'
-          expect(rec.book, `${presetKey} hard ${total} v ${up}`).toBe(chartAction)
+          expect(rec.book, `${presetKey} hard ${total} v ${up}`).toBe(codeToAction(chart.hard[total]![up]))
+        }
+      }
+    })
+
+    it(`${presetKey}: every soft cell matches the advisor`, () => {
+      const rules = PRESETS[presetKey]!
+      const chart = generateChart(rules)
+      for (let total = 13; total <= 20; total++) {
+        for (const up of UP) {
+          const rec = adviseHand(
+            { cards: cardsFor(total, true), fromSplit: false },
+            { rank: up === 11 ? 14 : up === 10 ? 13 : up, suit: 'clubs' },
+            rules, 0, false, ALL_ACTIONS)
+          expect(rec.book, `${presetKey} soft ${total} v ${up}`).toBe(codeToAction(chart.soft[total]![up]))
         }
       }
     })
@@ -69,11 +92,7 @@ describe('the advisor and the published chart never disagree', () => {
             { cards: [{ rank, suit: 'spades' }, { rank, suit: 'hearts' }], fromSplit: false },
             { rank: up === 11 ? 14 : up === 10 ? 13 : up, suit: 'clubs' },
             rules, 0, false, ALL_ACTIONS)
-          const cell = chart.pairs[pair]![up]
-          const chartAction = cell === 'P'
-            ? 'split'
-            : cell.startsWith('R') ? 'surrender' : cell.startsWith('D') ? 'double' : cell === 'S' ? 'stand' : 'hit'
-          expect(rec.book, `${presetKey} ${pair},${pair} v ${up}`).toBe(chartAction)
+          expect(rec.book, `${presetKey} ${pair},${pair} v ${up}`).toBe(codeToAction(chart.pairs[pair]![up]))
         }
       }
     })

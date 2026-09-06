@@ -3,7 +3,7 @@ import type { Card, Suit } from '~/utils/engine/cards'
 import { bucketOf } from '~/utils/engine/cards'
 import type { Action } from '~/utils/engine/hand'
 import { handTotal, isPair, legalActions, newHand } from '~/utils/engine/hand'
-import { bookPlay } from '~/utils/engine/basicStrategy'
+import { bookPlay, clampToLegal } from '~/utils/engine/basicStrategy'
 import { PRESETS } from '~/utils/engine/rules'
 
 const props = withDefaults(defineProps<{
@@ -124,7 +124,7 @@ const bookAction = computed<Action>(() => {
     total, soft, twoCards: true, fromSplit: false,
     pair: isPair(cards) ? bucketOf(cards[0]!) : null
   })
-  return legal.value.includes(rec.action as Action) ? rec.action as Action : (rec.evs.stand! >= rec.evs.hit! ? 'stand' : 'hit')
+  return clampToLegal(rec.action as Action, rec.evs, legal.value)
 })
 
 function answer(action: Action): void {
