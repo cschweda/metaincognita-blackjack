@@ -7,6 +7,23 @@ import LearnPage from '../../app/pages/learn.vue'
 import { PRESETS } from '../../app/utils/engine/rules'
 
 describe('StrategyChartView', () => {
+  it('names its model, its deck count, and only the exceptions that apply', async () => {
+    const single = await mountSuspended(StrategyChartView, { props: { rules: PRESETS.SINGLE_DECK_65! } })
+    const note = single.find('[data-testid="chart-model-note"]')
+    expect(note.exists()).toBe(true)
+    expect(note.text()).toContain('1-deck')
+    expect(note.text()).toContain('total-dependent')
+    expect(note.text(), 'the pre-existing limitation').toContain('7,7 vs 10')
+    expect(note.text(), 'and the cell this model LOST, not just the one it never had')
+      .toContain('A,7 vs 2')
+
+    // a multi-deck learner is not lectured about single-deck exceptions that do not apply
+    const multi = await mountSuspended(StrategyChartView, { props: { rules: PRESETS.MA_205CMR! } })
+    const multiNote = multi.find('[data-testid="chart-model-note"]').text()
+    expect(multiNote).toContain('8-deck')
+    expect(multiNote).not.toContain('7,7 vs 10')
+  })
+
   it('renders the generated grids and a cell detail on click', async () => {
     const w = await mountSuspended(StrategyChartView, { props: { rules: PRESETS.VEGAS_STRIP_6D! } })
     const cell = w.find('[data-testid="cell-hard-16-10"]')

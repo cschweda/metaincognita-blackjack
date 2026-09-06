@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import type { RuleSet } from '~/utils/engine/rules'
 import { validateRuleSet } from '~/utils/engine/rules'
-import { houseEdge } from '~/utils/engine/basicStrategy'
+import { edgeResolution, houseEdge } from '~/utils/engine/basicStrategy'
+import { formatHouseEdge } from '~/utils/format'
 
 const rules = defineModel<RuleSet>({ required: true })
 /** Hosts that render their own edge readout (RuleExplorer) turn this off. */
@@ -10,7 +11,9 @@ const props = withDefaults(defineProps<{ showEdge?: boolean }>(), { showEdge: tr
 
 const errors = computed(() => validateRuleSet(rules.value))
 const edge = computed(() =>
-  props.showEdge && errors.value.length === 0 ? (houseEdge(rules.value) * 100).toFixed(2) : null)
+  props.showEdge && errors.value.length === 0
+    ? formatHouseEdge(houseEdge(rules.value), edgeResolution(rules.value))
+    : null)
 
 const deckOptions = [1, 2, 4, 6, 8].map(v => ({ label: `${v} deck${v > 1 ? 's' : ''}`, value: v }))
 const payoutOptions = [{ label: '3 to 2', value: '3:2' }, { label: '6 to 5', value: '6:5' }]
@@ -124,7 +127,7 @@ const spotsOptions = [7, 9].map(v => ({ label: `${v} spots`, value: v }))
       v-else-if="edge"
       class="text-xs text-neutral-400"
     >
-      House edge ≈{{ edge }}% (model estimate)
+      House edge {{ edge }} (model estimate)
     </p>
   </div>
 </template>

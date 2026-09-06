@@ -31,7 +31,7 @@ const advisorRec = computed(() => {
   const t = heroTurn.value
   if (!t || !rules.value || !store.settings || store.settings.advisor !== 'coach') return null
   return adviseHand(
-    { cards: t.cards, fromSplit: t.fromSplit },
+    { cards: t.cards, fromSplit: t.fromSplit, handsFormed: t.handsFormed },
     t.dealerUp, rules.value, counting.tc.value, store.settings.advancedDeviations,
     legalActions.value
   )

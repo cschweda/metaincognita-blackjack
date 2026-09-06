@@ -551,6 +551,9 @@ export function useGameLoop() {
       bet: hand.bet,
       fromSplit: hand.fromSplit,
       handIndex: spot.activeHandIndex,
+      /** Hands AFTER a split from here — see BookHand.handsFormed; the count before it is off
+       *  by one and prices a rung the rules will refuse. */
+      handsFormed: spot.hands.length + 1,
       dealerUp: game.dealerUp
     }
   })
@@ -673,7 +676,7 @@ export function useGameLoop() {
     const hand = spot.hands[spot.activeHandIndex]!
     const tc = counting.tc.value
     const rec = adviseHand(
-      { cards: hand.cards, fromSplit: hand.fromSplit },
+      { cards: hand.cards, fromSplit: hand.fromSplit, handsFormed: spot.hands.length + 1 },
       game.dealerUp!, store.settings!.rules, tc, store.settings!.advancedDeviations,
       legalActions.value
     )

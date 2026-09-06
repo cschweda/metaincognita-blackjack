@@ -5,6 +5,7 @@ import {
 import type { RoundRecord } from '../../app/stores/useBlackjackStore'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
 import type { Card } from '../../app/utils/engine/cards'
+import { bookPlay } from '../../app/utils/engine/basicStrategy'
 
 const c = (rank: number, suit: Card['suit'] = 'spades'): Card => ({ rank, suit })
 const VEGAS = PRESETS.VEGAS_STRIP_6D! // S17, no surrender
@@ -268,5 +269,50 @@ describe('summarizeRound', () => {
     const r = round()
     r.spots = []
     expect(summarizeRound(r)).toBeNull()
+  })
+})
+
+describe('an unsplittable pair keeps its total-based deviation', () => {
+  // deviationFor's contract (counting.ts): "callers pass pair: null when the pair cannot be
+  // split", because an unsplittable 8,8 IS a hard 16 and must pick up the hard-16 index. Deriving
+  // it from the cards instead cost the counter their Illustrious-18 play, then graded the correct
+  // stand as a mistake and fed it to the drills (round-six review).
+  const eights: Card[] = [{ rank: 8, suit: 'spades' }, { rank: 8, suit: 'hearts' }]
+  const ten: Card = { rank: 13, suit: 'clubs' }
+  const rules = PRESETS.VEGAS_STRIP_6D!
+
+  it('8,8 vs T at the split cap stands on the hard-16 index', () => {
+    const rec = adviseHand({ cards: eights, fromSplit: false }, ten, rules, 2, true,
+      ['hit', 'stand', 'double'])
+    expect(rec.deviation?.id).toBe('16vT-stand')
+    expect(rec.action).toBe('stand')
+  })
+
+  it('but a SPLITTABLE 8,8 is a split, not a hard-16 stand', () => {
+    const rec = adviseHand({ cards: eights, fromSplit: false }, ten, rules, 2, true,
+      ['hit', 'stand', 'double', 'split'])
+    expect(rec.deviation).toBeNull()
+    expect(rec.action).toBe('split')
+  })
+
+  it('holds for the other pairs whose totals carry an index', () => {
+    const sixes: Card[] = [{ rank: 6, suit: 'spades' }, { rank: 6, suit: 'hearts' }]
+    const two: Card = { rank: 2, suit: 'clubs' }
+    const rec = adviseHand({ cards: sixes, fromSplit: false }, two, rules, 4, true,
+      ['hit', 'stand'])
+    expect(rec.deviation?.id, 'hard 12 v 2 stands at TC >= 3').toBe('12v2-stand')
+  })
+})
+
+describe('split is priced for the ladder the rules actually offer', () => {
+  it('a table that forbids resplits prices no resplit', () => {
+    // handsFormed counts hands AFTER the split, so a caller counting BEFORE must add one —
+    // passing the raw count priced a rung the engine refuses (round-six review)
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.maxSplitHands = 2
+    const hand = { total: 16, soft: false, twoCards: true, fromSplit: false, pair: 8 as const }
+    const firstSplit = bookPlay(rules, 6, { ...hand, handsFormed: 2 })
+    const chart = bookPlay(rules, 6, hand) // default is also 2
+    expect(firstSplit.evs.split).toBeCloseTo(chart.evs.split!, 12)
   })
 })

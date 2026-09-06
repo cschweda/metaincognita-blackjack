@@ -3,7 +3,7 @@ import type { Card, Suit } from '~/utils/engine/cards'
 import { bucketOf } from '~/utils/engine/cards'
 import type { Action } from '~/utils/engine/hand'
 import { handTotal, isPair, legalActions, newHand } from '~/utils/engine/hand'
-import { bestAction, bestActionFull } from '~/utils/engine/basicStrategy'
+import { bookPlay, clampToLegal } from '~/utils/engine/basicStrategy'
 import { PRESETS } from '~/utils/engine/rules'
 
 const props = withDefaults(defineProps<{
@@ -120,10 +120,11 @@ const bookAction = computed<Action>(() => {
   const cards = situation.value.cards
   const upB = bucketOf(situation.value.up)
   const { total, soft } = handTotal(cards)
-  const rec = isPair(cards) && legal.value.includes('split')
-    ? bestActionFull({ pair: bucketOf(cards[0]!), total, soft }, upB, rules.value)
-    : bestAction({ total, soft, twoCards: true, fromSplit: false }, upB, rules.value)
-  return legal.value.includes(rec.action as Action) ? rec.action as Action : (rec.evs.stand! >= rec.evs.hit! ? 'stand' : 'hit')
+  const rec = bookPlay(rules.value, upB, {
+    total, soft, twoCards: true, fromSplit: false,
+    pair: isPair(cards) ? bucketOf(cards[0]!) : null
+  })
+  return clampToLegal(rec.action as Action, rec.evs, legal.value)
 })
 
 function answer(action: Action): void {

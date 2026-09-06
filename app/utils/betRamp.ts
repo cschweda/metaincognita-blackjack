@@ -6,8 +6,8 @@ import type { RuleSet } from './engine/rules'
 import { BlackjackGame } from './engine/round'
 import { CountTracker, advantageEstimate } from './engine/counting'
 import { decideFor } from './engine/bots'
-import { actionEVs } from './engine/basicStrategy'
-import { handTotal } from './engine/hand'
+import { actionEVs, clampToLegal, contextForHand } from './engine/basicStrategy'
+import { handTotal, isPair, legalActions } from './engine/hand'
 import { bucketOf } from './engine/cards'
 
 export interface BetRamp {
@@ -151,10 +151,20 @@ function playRound(cg: CountedGame, betCents: number, rules: RuleSet, bankrollCe
       }
       if (action === 'double' || action === 'split') {
         const { total, soft } = handTotal(hand.cards)
+        // contextForHand, not evalContext: a pair must be priced against the same shoe the chart
+        // and the advisor use, or the lab reports risk-of-ruin for a player the app never teaches
+        const ctx = contextForHand(
+          rules, bucketOf(game.dealerUp!),
+          isPair(hand.cards) ? bucketOf(hand.cards[0]!) : null)
         const evs = actionEVs(
-          { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit },
-          bucketOf(game.dealerUp!), rules)
-        action = evs.stand >= evs.hit ? 'stand' : 'hit'
+          { total, soft, twoCards: hand.cards.length === 2, fromSplit: hand.fromSplit }, ctx)
+        // Rank every AFFORDABLE legal alternative, not just stand vs hit. Double and split are
+        // excluded because unaffordability is why we are here — clamping to the full legal set
+        // would hand back the very actions the bankroll cannot cover. Surrender now gets
+        // considered too, which the old two-way form never did.
+        const affordable = legalActions(hand, spot.hands.length, rules)
+          .filter(a => a !== 'double' && a !== 'split')
+        action = clampToLegal(action, evs, affordable)
       }
     }
     game.act(0, action)

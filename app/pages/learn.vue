@@ -4,7 +4,7 @@ import {
   TWENTY_ONE_PLUS_THREE_PAYS, LUCKY_LADIES_PAYS, MATCH_THE_DEALER_PAYS, BUSTER_PAYS
 } from '~/utils/engine/sideBets'
 import { PRESETS } from '~/utils/engine/rules'
-import { BUCKETS, PROB, actionEVs, distFor, houseEdge } from '~/utils/engine/basicStrategy'
+import { BUCKETS, PROB, actionEVs, distFor, evalContext, houseEdge } from '~/utils/engine/basicStrategy'
 import type { EngineFacts } from '~/utils/learnContent'
 import {
   HILO_ROWS, PROCEDURE, VARIATIONS, glossary, historyEras, myths, tidbits, viability
@@ -25,9 +25,11 @@ const h17DeltaPct = computed(() => ((houseEdge({ ...activeRules.value, dealerHit
 const dasDeltaPct = computed(() => ((houseEdge({ ...activeRules.value, doubleAfterSplit: false })
   - houseEdge({ ...activeRules.value, doubleAfterSplit: true })) * 100).toFixed(2))
 const dealerBustPct = computed(() => Math.round(
-  BUCKETS.reduce((s, up) => s + PROB[up] * distFor(up, activeRules.value).bust, 0) * 100))
+  BUCKETS.reduce((s, up) => s + PROB[up] * distFor(evalContext(activeRules.value, up)).bust, 0) * 100))
 const sixteenVsTen = computed(() => {
-  const evs = actionEVs({ total: 16, soft: false, twoCards: true, fromSplit: false }, 10, activeRules.value)
+  const evs = actionEVs(
+    { total: 16, soft: false, twoCards: true, fromSplit: false },
+    evalContext(activeRules.value, 10))
   return { standLoss: Math.round(-evs.stand * 100), hitLoss: Math.round(-evs.hit * 100) }
 })
 

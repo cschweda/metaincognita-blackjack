@@ -3,7 +3,7 @@ import { bucketOf } from './engine/cards'
 import type { RuleSet } from './engine/rules'
 import type { Action } from './engine/hand'
 import { handTotal, isPair } from './engine/hand'
-import { bestAction, bestActionFull, clampToLegal } from './engine/basicStrategy'
+import { bookPlay, clampToLegal } from './engine/basicStrategy'
 import type { Deviation } from './engine/counting'
 import type { DecisionRecord, RoundRecord } from '../stores/useBlackjackStore'
 import { FAB_4, ILLUSTRIOUS_18, deviationFor } from './engine/counting'
@@ -12,6 +12,8 @@ import { formatCents, signedCents } from './format'
 export interface AdvisorInput {
   cards: Card[]
   fromSplit: boolean
+  /** Hands already formed at this spot — prices the resplit ladder that actually remains. */
+  handsFormed?: number
 }
 
 export interface AdvisorRecommendation {
@@ -52,19 +54,39 @@ export function adviseHand(
 ): AdvisorRecommendation {
   const upB = bucketOf(up)
   const { total, soft } = handTotal(input.cards)
-  const pairHand = isPair(input.cards) && legal.includes('split')
-  const rec = pairHand
-    ? bestActionFull({ pair: bucketOf(input.cards[0]!), total, soft }, upB, rules)
-    : bestAction(
-        { total, soft, twoCards: input.cards.length === 2, fromSplit: input.fromSplit }, upB, rules)
+  const isPairHand = isPair(input.cards)
+  const rec = bookPlay(rules, upB, {
+    total, soft,
+    twoCards: input.cards.length === 2,
+    fromSplit: input.fromSplit,
+    // by the cards, not by legality — clampToLegal below drops an unavailable split
+    pair: isPair(input.cards) ? bucketOf(input.cards[0]!) : null,
+    handsFormed: input.handsFormed
+  })
   const book = clampToLegal(rec.action as Action, rec.evs, legal)
+  // Only price what the table is offering. AdvisorPanel renders this map verbatim, sorted
+  // descending with no filtering, and useGameLoop writes it into every persisted DecisionRecord —
+  // so an unavailable action here becomes a phantom row in the coach panel and in history forever,
+  // and buildReasoning picks it as the runner-up ("Hit: EV -53.5% beats split at -47.6%", naming a
+  // play with no button and stating the comparison backwards).
+  const offered = Object.fromEntries(
+    (Object.entries(rec.evs) as Array<[Action, number | undefined]>)
+      .filter(([a, v]) => v !== undefined && legal.includes(a))
+  ) as Partial<Record<Action, number>>
 
   let action = book
   let deviation: Deviation | null = null
   if (advanced) {
     const pool = rules.surrender === 'late' ? [...ILLUSTRIOUS_18, ...FAB_4] : ILLUSTRIOUS_18
     const dev = deviationFor(
-      { total, soft, pair: pairHand ? bucketOf(input.cards[0]!) : null }, upB, tc, pool,
+      // Legality-gated ON PURPOSE, and NOT the same question the pricing pair answers.
+      // deviationFor's contract (counting.ts) is explicit: "callers pass pair: null when the pair
+      // cannot be split", because an unsplittable 8,8 IS a hard 16 and must pick up the hard-16
+      // index. Deriving this from the cards instead cost the counter their Illustrious-18 play —
+      // 8,8 v T at the split cap returned hit/no-deviation where the book stands, and the trainer
+      // then graded the correct stand as a mistake and fed it to the drills.
+      { total, soft, pair: isPairHand && legal.includes('split') ? bucketOf(input.cards[0]!) : null },
+      upB, tc, pool,
       legal.includes('surrender'))
     if (dev && dev.play !== 'take-insurance' && legal.includes(dev.play as Action)) {
       deviation = dev
@@ -75,9 +97,9 @@ export function adviseHand(
   return {
     action,
     book,
-    evs: rec.evs as Partial<Record<Action, number>>,
+    evs: offered,
     deviation,
-    reasoning: buildReasoning(book, rec.evs as Partial<Record<Action, number>>, deviation, tc)
+    reasoning: buildReasoning(book, offered, deviation, tc)
   }
 }
 

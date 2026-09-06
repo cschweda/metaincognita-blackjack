@@ -16,7 +16,7 @@ describe('PresetPicker', () => {
       expect(w.find(`[data-testid="preset-${key}"]`).exists()).toBe(true)
     }
     expect(w.text()).toContain('model estimate')
-    expect(w.text()).toMatch(/≈\d+\.\d{2}% edge/)
+    expect(w.text()).toMatch(/\d+\.\d{2}% edge/)
   })
 })
 

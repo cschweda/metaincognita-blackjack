@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { PRESETS } from '~/utils/engine/rules'
-import { houseEdge } from '~/utils/engine/basicStrategy'
+import { edgeResolution, houseEdge } from '~/utils/engine/basicStrategy'
+import { formatHouseEdge } from '~/utils/format'
 
 const selected = defineModel<string>({ required: true })
 
@@ -11,7 +12,7 @@ const cards = computed(() => Object.entries(PRESETS)
     key,
     name: rules.name,
     source: rules.source,
-    edge: (houseEdge(rules) * 100).toFixed(2),
+    edge: formatHouseEdge(houseEdge(rules), edgeResolution(rules)),
     chips: [
       `${rules.decks} deck${rules.decks > 1 ? 's' : ''}`,
       rules.dealerHitsSoft17 ? 'H17' : 'S17',
@@ -36,7 +37,7 @@ const cards = computed(() => Object.entries(PRESETS)
     >
       <div class="flex items-baseline justify-between gap-2">
         <span class="font-semibold text-neutral-100">{{ card.name }}</span>
-        <span class="whitespace-nowrap text-xs text-neutral-400">≈{{ card.edge }}% edge<span class="text-neutral-600">*</span></span>
+        <span class="whitespace-nowrap text-xs text-neutral-400">{{ card.edge }} edge<span class="text-neutral-400">*</span></span>
       </div>
       <p
         class="mt-1 truncate text-[11px] text-neutral-400"
@@ -67,7 +68,9 @@ const cards = computed(() => Object.entries(PRESETS)
     </button>
   </div>
   <p class="mt-2 text-[11px] text-neutral-400">
-    *House edge is a model estimate (fixed-composition engine) — it runs slightly high vs published
-    casino figures, especially at 1–2 decks. The comparison BETWEEN rule sets is what matters.
+    *House edge is a model estimate. Draw probabilities come from this shoe with the known cards
+    removed once, at the top of the hand — accurate to about a hundredth of a point at four decks
+    and up, and roughly 0.15 points player-favourable at one deck. The comparison BETWEEN rule
+    sets is what matters.
   </p>
 </template>

@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useCounting } from '~/composables/useCounting'
+import { edgeResolution } from '~/utils/engine/basicStrategy'
+import { formatAdvantage } from '~/utils/format'
 
 const store = useBlackjackStore()
 const counting = useCounting()
+
+/** Inside the model's own resolution the honest reading is "about even" — the deck-aware model
+ *  can price a 1-deck 3:2 game slightly NEGATIVE, and printing "+0.17%" told a single-deck player
+ *  they were ahead before a card was dealt. The band is deck-aware, so it does not blur the real
+ *  break-even crossing on a multi-deck table. */
+const edgeText = computed(() => {
+  const rules = store.settings?.rules
+  return formatAdvantage(counting.advantage.value, rules ? edgeResolution(rules) : 0.002)
+})
 
 const visibility = computed(() => store.settings?.count ?? 'off')
 const checkInput = ref<number | null>(null)
@@ -65,7 +76,10 @@ defineExpose({ focusCheck })
         <span>RC</span><span class="text-right text-[var(--accent-cream)]">{{ counting.rc.value > 0 ? '+' : '' }}{{ counting.rc.value }}</span>
         <span>TC</span><span class="text-right text-[var(--accent-cream)]">{{ counting.tc.value.toFixed(1) }}</span>
         <span>Decks left</span><span class="text-right">{{ counting.decksRemaining.value.toFixed(1) }}</span>
-        <span>Edge est.</span><span class="text-right">{{ (counting.advantage.value * 100).toFixed(2) }}%</span>
+        <span>Edge est.</span><span
+          class="text-right"
+          data-testid="count-edge"
+        >{{ edgeText }}</span>
       </div>
 
       <div v-else>
