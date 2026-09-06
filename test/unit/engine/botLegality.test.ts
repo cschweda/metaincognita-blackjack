@@ -22,22 +22,29 @@ describe('a bot never chooses an action the table refuses', () => {
     const illegal: string[] = []
     for (const [key, base] of Object.entries(PRESETS)) {
       for (const dealerPeek of [true, false]) {
-        for (const maxSplitHands of [2, 3, 4] as const) {
-          const rules = cloneRules(base)
-          rules.dealerPeek = dealerPeek
-          rules.maxSplitHands = maxSplitHands
-          rules.resplitAces = true
-          for (const persona of PERSONAS) {
-            for (const up of UPS) {
-              for (const handCount of [2, 3]) {
-                const hand = newHand(acePair(), 1000, { fromSplit: true, splitAces: true })
-                const legal = legalActions(hand, handCount, rules)
-                if (legal.length < 2) continue
-                const chosen = decideFor(persona.id, hand, handCount, upCard(up), rules)
-                if (!legal.includes(chosen)) {
-                  illegal.push(
-                    `${key} peek=${dealerPeek} cap=${maxSplitHands} ${persona.id} up=${up}`
-                    + ` hands=${handCount}: legal=[${legal}] chose '${chosen}'`)
+        for (const surrender of ['none', 'late'] as const) {
+          for (const maxSplitHands of [2, 3, 4] as const) {
+            const rules = cloneRules(base)
+            rules.dealerPeek = dealerPeek
+            rules.maxSplitHands = maxSplitHands
+            rules.resplitAces = true
+            // late surrender + no-peek was briefly unreachable behind a validateRuleSet gate, which
+            // also hid this hang path — every reproduced illegal action required dealerPeek:false.
+            // The escrow fix removed that gate, so the guard has to cover the combination directly:
+            // legality is what closes the hang, not the rule ban.
+            rules.surrender = surrender
+            for (const persona of PERSONAS) {
+              for (const up of UPS) {
+                for (const handCount of [2, 3]) {
+                  const hand = newHand(acePair(), 1000, { fromSplit: true, splitAces: true })
+                  const legal = legalActions(hand, handCount, rules)
+                  if (legal.length < 2) continue
+                  const chosen = decideFor(persona.id, hand, handCount, upCard(up), rules)
+                  if (!legal.includes(chosen)) {
+                    illegal.push(
+                      `${key} peek=${dealerPeek} cap=${maxSplitHands} ${persona.id} up=${up}`
+                      + ` hands=${handCount}: legal=[${legal}] chose '${chosen}'`)
+                  }
                 }
               }
             }
