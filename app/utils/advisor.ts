@@ -161,7 +161,11 @@ function handResultClause(hand: RecordedHand, dealer: RoundRecord['dealer']): st
   const total = hand.total
   switch (hand.outcome) {
     case 'surrender':
-      return 'you surrendered for half the bet'
+      // under no-peek a natural takes the WHOLE wager (MA §8) — read the settlement, do not
+      // assume half, or the recap contradicts the bankroll line beside it
+      return hand.net <= -hand.bet
+        ? 'you surrendered, but the dealer natural took the full bet'
+        : 'you surrendered for half the bet'
     case 'blackjack':
       return 'your blackjack pays before the dealer even plays'
     case 'push':

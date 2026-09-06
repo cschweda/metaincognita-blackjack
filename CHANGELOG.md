@@ -7,6 +7,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ### Fixed
 
+- **A no-peek surrender was priced as a free pass.** Under no-peek the dealer's natural is charged
+  to every action through the unconditioned distribution — except surrender, which settled at a
+  flat half whatever the hole turned out to be. Surrender escaped a loss its rivals paid, so the
+  chart recommended surrendering **hard 5, 6, 7 and 12 against an ace**, and the computed edge went
+  negative at every deck count (1D −0.65% · 2D −0.33% · 4D −0.18% · 6D −0.12% · 8D −0.10%), clearing
+  the `edgeResolution` band so `modelledEdge` passed it straight through to the rules lab, the count
+  panel and `rampStats`.
+
+  `hand.ts` already documented the right rule — MA §8's escrow settles a natural as a **full wager
+  lost**. The engine now holds a no-peek surrender exactly the way it holds a blackjack and prices
+  it once the hole is known, and the model charges the same natural: `−0.5·(1−P) + −1·P`, which
+  collapses to a flat −0.5 at a peeking table. Edges are positive from two decks up
+  (2D 0.24% · 4D 0.39% · 6D 0.44% · 8D 0.46%); one deck stays inside its band and reads `~even`.
+
+  Two surfaces were saying the opposite of what happened to the money, and both are fixed: the
+  announcement promised "half the wager returned" **before** the hole was turned, into an
+  `aria-live` region, and the persistent round recap hardcoded "you surrendered for half the bet"
+  beside a headline reading *Lost $10*.
+
+  The `validateRuleSet` stopgap that rejected no-peek + late surrender is removed — the combination
+  is priced correctly now, so it does not need banning.
+
+  Model and engine are pinned together: `modelMatchesEngine.test.ts` asserts the model's price is
+  the probability-weighted blend of the two settlements the engine can actually produce. Sabotaging
+  either half alone turns the suite red.
+
+
+### Fixed
+
 - **A bot could wedge the table permanently.** `decideFor`'s persona branches never consulted the
   legal action set, and `bookAction`'s fallback ranked only stand vs hit. Split aces with a resplit
   available offer exactly `['split', 'stand']`, so Mimic-the-Dealer Mike hit them and By-the-Book
