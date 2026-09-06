@@ -151,3 +151,31 @@ describe('legality never changes how a hand is priced', () => {
     expect(noSplit.book).toBe('double')
   })
 })
+
+describe('split is priced at the depth the spot has actually reached', () => {
+  // bestActionFull gained a `flags` parameter so it would stop hardcoding the caller's reality,
+  // but its split half kept taking splitEV's `handsFormed = 2` default — so a player on their
+  // fourth hand was shown a resplit ladder that no longer exists, and decisionCost charged the
+  // mistake against the inflated number (round-five review).
+  it('a later split hand is worth less than the first', () => {
+    const rules = PRESETS.VEGAS_STRIP_6D!
+    const at = (handsFormed: number) => bookPlay(rules, 6, {
+      total: 16, soft: false, twoCards: true, fromSplit: handsFormed > 2, pair: 8, handsFormed
+    }).evs.split!
+    expect(at(2)).toBeGreaterThan(at(3))
+    expect(at(3)).toBeGreaterThan(at(4))
+    // measured: 0.40567 / 0.39625 / 0.32735 — nearly 8 EV points between first and fourth
+    expect(at(2) - at(4)).toBeGreaterThan(0.07)
+  })
+
+  it('defaults to the first split when the caller does not know', () => {
+    const rules = PRESETS.VEGAS_STRIP_6D!
+    const explicit = bookPlay(rules, 6, {
+      total: 16, soft: false, twoCards: true, fromSplit: false, pair: 8, handsFormed: 2
+    }).evs.split
+    const implied = bookPlay(rules, 6, {
+      total: 16, soft: false, twoCards: true, fromSplit: false, pair: 8
+    }).evs.split
+    expect(implied).toBeCloseTo(explicit!, 12)
+  })
+})

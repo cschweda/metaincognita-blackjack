@@ -551,6 +551,8 @@ export function useGameLoop() {
       bet: hand.bet,
       fromSplit: hand.fromSplit,
       handIndex: spot.activeHandIndex,
+      /** Hands formed at this spot — the coach panel prices the resplit ladder that remains. */
+      handsFormed: spot.hands.length,
       dealerUp: game.dealerUp
     }
   })
@@ -673,7 +675,7 @@ export function useGameLoop() {
     const hand = spot.hands[spot.activeHandIndex]!
     const tc = counting.tc.value
     const rec = adviseHand(
-      { cards: hand.cards, fromSplit: hand.fromSplit },
+      { cards: hand.cards, fromSplit: hand.fromSplit, handsFormed: spot.hands.length },
       game.dealerUp!, store.settings!.rules, tc, store.settings!.advancedDeviations,
       legalActions.value
     )

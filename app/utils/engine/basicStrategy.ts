@@ -445,11 +445,12 @@ export interface PairState {
  *  forbid both, publishing an illegal EV table into the coach panel (round-four review). */
 export function bestActionFull(
   state: PairState, ctx: EvalContext,
-  flags: Pick<TotalState, 'twoCards' | 'fromSplit'> = { twoCards: true, fromSplit: false }
+  flags: Pick<TotalState, 'twoCards' | 'fromSplit'> = { twoCards: true, fromSplit: false },
+  handsFormed = 2
 ): Recommendation {
   const base = bestAction(
     { total: state.total, soft: state.soft, twoCards: flags.twoCards, fromSplit: flags.fromSplit }, ctx)
-  const sEV = splitEV(state.pair, ctx)
+  const sEV = splitEV(state.pair, ctx, handsFormed)
   const evs: ActionEVs = { ...base.evs, split: sEV }
   const baseBest = base.evs[base.action]!
   if (sEV > baseBest) return { action: 'split', evs }
@@ -464,6 +465,10 @@ export interface BookHand {
   fromSplit: boolean
   /** The pair's bucket when this hand is governed by a pair row, else null. */
   pair: Bucket | null
+  /** Hands already formed at this spot. Without it splitEV always priced the FIRST split, so a
+   *  player on their fourth hand saw a resplit ladder that no longer exists — 8,8 v 6 at six
+   *  decks reads +40.6% when the real fourth-hand value is +32.7% (round-five review). */
+  handsFormed?: number
 }
 
 /**
@@ -476,7 +481,7 @@ export function bookPlay(rules: RuleSet, up: Bucket, hand: BookHand): Recommenda
   if (hand.pair !== null) {
     return bestActionFull(
       { pair: hand.pair, total: hand.total, soft: hand.soft }, ctx,
-      { twoCards: hand.twoCards, fromSplit: hand.fromSplit })
+      { twoCards: hand.twoCards, fromSplit: hand.fromSplit }, hand.handsFormed)
   }
   return bestAction(hand, ctx)
 }

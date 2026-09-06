@@ -12,6 +12,8 @@ import { formatCents, signedCents } from './format'
 export interface AdvisorInput {
   cards: Card[]
   fromSplit: boolean
+  /** Hands already formed at this spot — prices the resplit ladder that actually remains. */
+  handsFormed?: number
 }
 
 export interface AdvisorRecommendation {
@@ -58,7 +60,8 @@ export function adviseHand(
     twoCards: input.cards.length === 2,
     fromSplit: input.fromSplit,
     // by the cards, not by legality — clampToLegal below drops an unavailable split
-    pair: isPair(input.cards) ? bucketOf(input.cards[0]!) : null
+    pair: isPair(input.cards) ? bucketOf(input.cards[0]!) : null,
+    handsFormed: input.handsFormed
   })
   const book = clampToLegal(rec.action as Action, rec.evs, legal)
   // Only price what the table is offering. AdvisorPanel renders this map verbatim, sorted

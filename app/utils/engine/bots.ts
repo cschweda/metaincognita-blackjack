@@ -25,12 +25,12 @@ function bookAction(hand: PlayHand, handCount: number, up: Card, rules: RuleSet)
   if (legal.length === 0) return 'stand'
   if (legal.length === 1) return legal[0]!
   const upB = bucketOf(up)
-  const rec = bookHand(hand, upB, rules)
+  const rec = bookHand(hand, upB, rules, handCount)
   return clampToLegal(rec.action as Action, rec.evs, legal)
 }
 
 /** The book's read of this hand, through the single pricing entry point. */
-function bookHand(hand: PlayHand, upB: Bucket, rules: RuleSet) {
+function bookHand(hand: PlayHand, upB: Bucket, rules: RuleSet, handsFormed = 2) {
   const { total, soft } = handTotal(hand.cards)
   return bookPlay(rules, upB, {
     total,
@@ -38,13 +38,14 @@ function bookHand(hand: PlayHand, upB: Bucket, rules: RuleSet) {
     twoCards: hand.cards.length === 2,
     fromSplit: hand.fromSplit,
     // by the cards, never by legality — clampToLegal drops an unavailable split afterwards
-    pair: isPair(hand.cards) ? bucketOf(hand.cards[0]!) : null
+    pair: isPair(hand.cards) ? bucketOf(hand.cards[0]!) : null,
+    handsFormed
   })
 }
 
 /** Book EVs, used to rank the legal alternatives when a persona wants something not on offer. */
-function bookEVs(hand: PlayHand, upB: Bucket, rules: RuleSet): ActionEVs {
-  return bookHand(hand, upB, rules).evs
+function bookEVs(hand: PlayHand, upB: Bucket, rules: RuleSet, handsFormed: number): ActionEVs {
+  return bookHand(hand, upB, rules, handsFormed).evs
 }
 
 function flatBet(base: number): number {
@@ -139,7 +140,7 @@ export function decideFor(id: PersonaId, hand: PlayHand, handCount: number, deal
   // but the quirk branches below never consulted `legal` at all — Mike would hit split aces, where
   // the only legal actions are split and stand, and the engine refuses it (see botLegality.test).
   const clamp = (preferred: Action): Action =>
-    legal.includes(preferred) ? preferred : clampToLegal(preferred, bookEVs(hand, bucketOf(dealerUp), rules), legal)
+    legal.includes(preferred) ? preferred : clampToLegal(preferred, bookEVs(hand, bucketOf(dealerUp), rules, handCount), legal)
   switch (id) {
     case 'bea':
     case 'ivan':
