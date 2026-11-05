@@ -23,14 +23,16 @@ export default defineNuxtConfig({
         { name: 'description', content: 'Authentic casino blackjack simulator and trainer — basic strategy, card counting, official-rulebook rules' },
         { property: 'og:title', content: 'Blackjack Trainer' },
         { property: 'og:description', content: 'Basic strategy coaching and Hi-Lo counting practice on rules from official casino documents.' },
-        { property: 'og:image', content: '/og-image.png' },
+        { property: 'og:image', content: 'https://blackjack.metaincognita.com/og-image.png' },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
+        { property: 'og:image:alt', content: 'Blackjack Trainer — basic strategy and Hi-Lo counting on official casino rules' },
         { property: 'og:type', content: 'website' },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: 'Blackjack Trainer' },
         { name: 'twitter:description', content: 'Basic strategy coaching and Hi-Lo counting practice on rules from official casino documents.' },
-        { name: 'twitter:image', content: '/og-image.png' }
+        { name: 'twitter:image', content: 'https://blackjack.metaincognita.com/og-image.png' },
+        { name: 'twitter:image:alt', content: 'Blackjack Trainer — basic strategy and Hi-Lo counting on official casino rules' }
       ]
     }
   },
