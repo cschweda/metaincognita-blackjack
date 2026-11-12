@@ -1,4 +1,5 @@
 import type { Card } from './cards'
+import { SUITS } from './cards'
 import type { RuleSet } from './rules'
 import type { Action, PlayHand } from './hand'
 import { handTotal, isBlackjack, isBust, legalActions, newHand } from './hand'
@@ -8,13 +9,72 @@ import { statefulMulberry32, randomSeed } from './rng'
 import type { RNG, StatefulRNG } from './rng'
 import type { GameSnapshot } from './serializeTypes'
 import { SNAPSHOT_VERSION } from './serializeTypes'
-import { blackjackPayoutRatio, cloneRules } from './rules'
+import { blackjackPayoutRatio, cloneRules, isRuleSet } from './rules'
 import {
   evaluate21Plus3, evaluateBuster, evaluateLuckyLadies, evaluateMatchTheDealer, matchTheDealerOffered
 } from './sideBets'
 import type { SideBetId, SideBetResult } from './sideBets'
 
 export class IllegalActionError extends Error {}
+
+const PHASES: readonly string[] = ['betting', 'insurance', 'playerTurns', 'complete']
+
+function isCard(v: unknown): v is Card {
+  if (typeof v !== 'object' || v === null) return false
+  const c = v as Record<string, unknown>
+  return Number.isInteger(c.rank) && (c.rank as number) >= 2 && (c.rank as number) <= 14
+    && SUITS.includes(c.suit as Card['suit'])
+}
+
+const isCards = (v: unknown): v is Card[] => Array.isArray(v) && v.every(isCard)
+
+/**
+ * Refuse a snapshot that would restore into a game that cannot be played or drawn.
+ *
+ * restore() used to copy whatever it was handed, so a damaged blob "restored" without complaint
+ * and failed later, during render — outside the caller's try/catch, which is why the table page
+ * re-threw on every visit and the bad snapshot was never cleared. Throwing HERE is what lets the
+ * caller fall back to a fresh shoe.
+ */
+function assertSnapshot(snap: GameSnapshot): void {
+  const bad = (why: string): never => {
+    throw new Error(`corrupt snapshot: ${why}`)
+  }
+  if (typeof snap !== 'object' || snap === null) bad('not an object')
+  if (!isRuleSet(snap.rules)) bad('rules')
+  if (typeof snap.rngState !== 'number' || !Number.isFinite(snap.rngState)) bad('rng state')
+  if (!PHASES.includes(snap.phase)) bad('phase')
+  if (typeof snap.holeRevealed !== 'boolean') bad('hole flag')
+  if (!isCards(snap.dealerCards)) bad('dealer cards')
+  const shoe = snap.shoe
+  if (typeof shoe !== 'object' || shoe === null) bad('shoe')
+  if (shoe.decks !== snap.rules.decks || typeof shoe.reached !== 'boolean') bad('shoe header')
+  if (typeof shoe.penetration !== 'number' || !Number.isFinite(shoe.penetration)) bad('penetration')
+  if (!isCards(shoe.cards) || !isCards(shoe.rack) || !isCards(shoe.burned)) bad('shoe cards')
+  if (!Array.isArray(snap.spots)) bad('spots')
+  let onTable = snap.dealerCards.length
+  for (const spot of snap.spots) {
+    if (typeof spot !== 'object' || spot === null) bad('spot')
+    if (!Number.isInteger(spot.spotId) || !Number.isInteger(spot.activeHandIndex)) bad('spot header')
+    if (typeof spot.sideBets !== 'object' || spot.sideBets === null) bad('side bets')
+    if (!Array.isArray(spot.sideBetResults) || !Array.isArray(spot.hands)) bad('spot lists')
+    for (const hand of spot.hands) {
+      if (typeof hand !== 'object' || hand === null || !isCards(hand.cards)) bad('hand')
+      if (!Number.isFinite(hand.bet) || !Number.isFinite(hand.netResult)) bad('hand money')
+      onTable += hand.cards.length
+    }
+  }
+  // Every card is in exactly one place; more than a shoe's worth means the piles were duplicated.
+  // A completed round is the one exception: its cards are already in the rack AND still shown on
+  // the felt until the next deal, so the table is not counted then.
+  const live = snap.phase === 'complete' ? 0 : onTable
+  if (shoe.cards.length + shoe.rack.length + shoe.burned.length + live > shoe.decks * 52) bad('too many cards')
+  // a round in progress needs a dealt table to act on, or the restored page waits forever
+  if (snap.phase === 'insurance' || snap.phase === 'playerTurns') {
+    if (snap.dealerCards.length < 2 || snap.spots.length === 0) bad('round in progress with no table')
+    if (snap.spots.some(s => s.hands.length === 0)) bad('spot without a hand')
+  }
+}
 
 /** Structural slice of Shoe the game needs — tests inject stacked decks. */
 export interface CardSource {
@@ -587,7 +647,8 @@ export class BlackjackGame {
   }
 
   static restore(snap: GameSnapshot): BlackjackGame {
-    if (snap.v !== SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version: ${snap.v}`)
+    if (snap?.v !== SNAPSHOT_VERSION) throw new Error(`unsupported snapshot version: ${snap?.v}`)
+    assertSnapshot(snap)
     const rules = cloneRules(snap.rules)
     const game = new BlackjackGame(rules, { seed: snap.rngState })
     // The constructor above built a throwaway shoe, consuming RNG. Rewire BOTH the rng and

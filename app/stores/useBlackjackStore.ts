@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { RuleSet } from '../utils/engine/rules'
+import { isRuleSet } from '../utils/engine/rules'
 import type { PersonaId } from '../utils/engine/bots'
+import { PERSONAS } from '../utils/engine/bots'
 import type { GameSnapshot } from '../utils/engine/serializeTypes'
 import type { Action } from '../utils/engine/hand'
 import type { BetRamp } from '../utils/betRamp'
+import { isBetRamp } from '../utils/betRamp'
 
 export const STORAGE_KEY = 'blackjack-session-v1'
 const STORAGE_VERSION = 1
@@ -143,6 +146,60 @@ function freshTraining(): TrainingStats {
   }
 }
 
+// ── shape checks for anything read back from localStorage ────────────────────
+// A payload can parse and carry the right version and still be the wrong shape: a hand edit, a
+// half-written blob, or a field whose type changed without a version bump. Nothing on screen can
+// reset storage, so a bad shape that gets through is permanent for that browser. Each loader
+// repairs what it can and refuses the rest.
+
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
+const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
+/** Keep only the entries of a string→number record whose value passes `ok`. */
+function numberRecord(v: unknown, ok: (n: number) => boolean): Record<string, number> {
+  if (!isObject(v)) return {}
+  const out: Record<string, number> = {}
+  for (const [key, value] of Object.entries(v)) {
+    if (isFiniteNumber(value) && ok(value)) out[key] = value
+  }
+  return out
+}
+
+function adherenceBucket(v: unknown): { decisions: number, correct: number } {
+  return isObject(v) && isCount(v.decisions) && isCount(v.correct) && v.correct <= v.decisions
+    ? { decisions: v.decisions, correct: v.correct }
+    : { decisions: 0, correct: 0 }
+}
+
+const MODES: readonly string[] = ['casino', 'quick']
+const SPEEDS: readonly string[] = ['relaxed', 'normal', 'brisk']
+const ADVISORS: readonly string[] = ['coach', 'feedback', 'exam']
+const COUNTS: readonly string[] = ['shown', 'self-check', 'off']
+
+function isSessionSettings(v: unknown): v is SessionSettings {
+  if (!isObject(v) || !isRuleSet(v.rules)) return false
+  const known = PERSONAS.map(p => p.id as string)
+  return MODES.includes(v.mode as string) && SPEEDS.includes(v.speed as string)
+    && ADVISORS.includes(v.advisor as string) && COUNTS.includes(v.count as string)
+    && typeof v.flair === 'boolean' && typeof v.advancedDeviations === 'boolean'
+    && Array.isArray(v.botIds) && v.botIds.every(id => known.includes(id as string))
+    && new Set(v.botIds).size === v.botIds.length && v.botIds.length < v.rules.spots
+}
+
+/** Enough of a RoundRecord for History, Analysis and the recap to read without throwing. */
+function isRoundRecord(v: unknown): v is RoundRecord {
+  if (!isObject(v) || !isFiniteNumber(v.round) || !isObject(v.dealer)) return false
+  if (!Array.isArray(v.dealer.cards) || !Array.isArray(v.visibleCards) || !Array.isArray(v.spots)) return false
+  return v.spots.every(s =>
+    isObject(s) && typeof s.occupant === 'string' && isFiniteNumber(s.insuranceNet)
+    && Array.isArray(s.sideBets) && s.sideBets.every(b => isObject(b) && isFiniteNumber(b.net))
+    && Array.isArray(s.hands) && s.hands.every(h =>
+      isObject(h) && Array.isArray(h.cards) && isFiniteNumber(h.bet) && isFiniteNumber(h.net)))
+    && (v.heroDecisions === undefined || Array.isArray(v.heroDecisions))
+}
+
 /** Version-mismatch seam: map an older payload forward, or return null when unknown
  *  (→ backup + fresh). A future TRAINING_VERSION bump adds its `case` here so a bump
  *  can never silently destroy lifetime stats. */
@@ -200,23 +257,29 @@ export const useBlackjackStore = defineStore('blackjack', () => {
         backupTraining(raw)
         return freshTraining()
       }
-      const base = freshTraining()
+      const stored: Record<string, unknown> = isObject(data.adherence) ? data.adherence : {}
+      const betRamp = isBetRamp(data.betRamp) ? data.betRamp : null
       return {
-        adherence: { ...base.adherence, ...(data.adherence ?? {}) },
-        mistakeBag: typeof data.mistakeBag === 'object' && data.mistakeBag !== null && !Array.isArray(data.mistakeBag)
-          ? data.mistakeBag as Record<string, number>
-          : {},
-        countChecks: Array.isArray(data.countChecks) ? data.countChecks.slice(-COUNT_CHECK_CAP) : [],
-        drillBests: typeof data.drillBests === 'object' && data.drillBests !== null && !Array.isArray(data.drillBests)
-          ? data.drillBests as Record<string, number>
-          : {},
-        drillTimes: typeof data.drillTimes === 'object' && data.drillTimes !== null && !Array.isArray(data.drillTimes)
-          ? data.drillTimes as Record<string, number>
-          : {},
-        betRamp: typeof data.betRamp === 'object' && data.betRamp !== null && !Array.isArray(data.betRamp)
-          ? data.betRamp as BetRamp
-          : null,
-        betHintsEnabled: data.betHintsEnabled === true,
+        // every bucket is rebuilt: a null one threw inside recordDecision, which runs before the
+        // engine accepts the play — so no action could ever be played again, in any session
+        adherence: {
+          hard: adherenceBucket(stored.hard),
+          soft: adherenceBucket(stored.soft),
+          pair: adherenceBucket(stored.pair),
+          surrender: adherenceBucket(stored.surrender),
+          insurance: adherenceBucket(stored.insurance)
+        },
+        mistakeBag: numberRecord(data.mistakeBag, n => n > 0),
+        countChecks: Array.isArray(data.countChecks)
+          ? (data.countChecks as unknown[])
+              .filter((c): c is { at: number, entered: number, actual: number } =>
+                isObject(c) && isFiniteNumber(c.at) && isFiniteNumber(c.entered) && isFiniteNumber(c.actual))
+              .slice(-COUNT_CHECK_CAP)
+          : [],
+        drillBests: numberRecord(data.drillBests, n => n >= 0),
+        drillTimes: numberRecord(data.drillTimes, n => n >= 0),
+        betRamp,
+        betHintsEnabled: betRamp !== null && data.betHintsEnabled === true,
         keyboardShortcuts: data.keyboardShortcuts !== false,
         exposeMuckedHole: data.exposeMuckedHole === true
       }
@@ -395,19 +458,48 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     try {
       const data = JSON.parse(raw) as Record<string, unknown>
       if (data.version !== STORAGE_VERSION) throw new Error('version mismatch')
-      if (typeof data.bankroll !== 'number' || !Number.isFinite(data.bankroll)) throw new Error('bad bankroll')
+      // whole cents, never negative: money only moves at settlement and every outlay is gated
+      // on the bankroll, so anything else is not a balance this app wrote
+      if (!Number.isSafeInteger(data.bankroll) || (data.bankroll as number) < 0) throw new Error('bad bankroll')
       if (!Array.isArray(data.history)) throw new Error('bad history')
-      const storedSettings = (data.settings ?? null) as Partial<SessionSettings> | null
-      settings.value = storedSettings
-        ? { advisor: 'feedback', count: 'self-check', advancedDeviations: false, ...storedSettings } as SessionSettings
+      // defaults first (older payloads predate these three), then the whole thing must be valid —
+      // `{}` used to be accepted and left an "active" session with no rules to deal from
+      const merged = isObject(data.settings)
+        ? { advisor: 'feedback', count: 'self-check', advancedDeviations: false, ...data.settings }
         : null
-      bankroll.value = data.bankroll
-      session.value = { ...freshStats(), ...(data.session as Partial<SessionStats> | undefined) }
-      history.value = (data.history as RoundRecord[]).slice(-HISTORY_CAP)
-      botStates.value = (data.botStates ?? {}) as typeof botStates.value
-      roundSnapshot.value = (data.roundSnapshot ?? null) as GameSnapshot | null
-      roundTrail.value = (data.roundTrail ?? null) as RoundTrail | null
-      countState.value = (data.countState ?? null) as typeof countState.value
+      if (merged !== null && !isSessionSettings(merged)) throw new Error('bad settings')
+      settings.value = merged
+      bankroll.value = data.bankroll as number
+      const stats = freshStats()
+      const storedStats = isObject(data.session) ? data.session : {}
+      for (const key of Object.keys(stats) as Array<keyof SessionStats>) {
+        if (isFiniteNumber(storedStats[key])) stats[key] = storedStats[key]
+      }
+      session.value = stats
+      history.value = (data.history as unknown[]).filter(isRoundRecord).slice(-HISTORY_CAP)
+      // one well-formed state per seated bot, inside the table limits — beginRound refuses a bet
+      // outside them, which would strand the Deal button
+      const bots: typeof botStates.value = {}
+      const storedBots = isObject(data.botStates) ? data.botStates : {}
+      for (const id of merged?.botIds ?? []) {
+        const b = storedBots[id]
+        const { minBet, maxBet } = merged!.rules
+        const betOk = isObject(b) && Number.isInteger(b.bet) && (b.bet as number) >= minBet && (b.bet as number) <= maxBet
+        const last = isObject(b) && ['win', 'lose', 'push'].includes(b.last as string) ? b.last as 'win' | 'lose' | 'push' : null
+        bots[id] = { bet: betOk ? (b as { bet: number }).bet : minBet, last }
+      }
+      botStates.value = bots
+      // the snapshot's own shape is checked where it is consumed (BlackjackGame.restore throws,
+      // and restoreSession falls back to a fresh shoe)
+      roundSnapshot.value = (isObject(data.roundSnapshot) ? data.roundSnapshot : null) as GameSnapshot | null
+      const trail = data.roundTrail
+      roundTrail.value = isObject(trail) && Array.isArray(trail.visible) && Array.isArray(trail.decisions)
+        ? trail as unknown as RoundTrail
+        : null
+      const count = data.countState
+      countState.value = isObject(count) && isFiniteNumber(count.running) && isCount(count.cardsSeen)
+        ? { running: count.running, cardsSeen: count.cardsSeen }
+        : null
       sessionActive.value = data.sessionActive === true && settings.value !== null
       return sessionActive.value
     } catch {

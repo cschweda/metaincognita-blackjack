@@ -29,6 +29,27 @@ export const DEFAULT_RAMP: BetRamp = {
   steps: [1, 2, 4, 6, 8, 12]
 }
 
+/** Ramp buckets: [≤0, +1, +2, +3, +4, ≥+5]. */
+export const RAMP_STEPS = 6
+
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
+/**
+ * A ramp read back from localStorage. `steps: 5` crashed the Lab ("is not iterable") and a
+ * non-numeric unit crashed the table's bet hint — on every visit, with no control to reset it.
+ * A unit under one cent is refused too: the hint divides by it.
+ */
+export function isBetRamp(v: unknown): v is BetRamp {
+  if (typeof v !== 'object' || v === null) return false
+  const r = v as Record<string, unknown>
+  return finite(r.unitCents) && r.unitCents >= 1
+    && finite(r.bankrollCents) && r.bankrollCents > 0
+    && finite(r.roundsPerHour) && r.roundsPerHour > 0
+    && typeof r.wongOut === 'boolean'
+    && Array.isArray(r.steps) && r.steps.length === RAMP_STEPS
+    && r.steps.every(s => finite(s) && s >= 0)
+}
+
 // ── math + simulation (pure; engine-driven; injectable seeds) ─────────────────
 
 export interface TcFrequencies {

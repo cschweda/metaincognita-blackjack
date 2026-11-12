@@ -188,6 +188,36 @@ export function blackjackPayoutRatio(payout: BlackjackPayout): { num: number, de
   return payout === '3:2' ? { num: 3, den: 2 } : { num: 6, den: 5 }
 }
 
+const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
+
+/**
+ * Structural check for a rule set that did not come from this code — one read back from
+ * localStorage. validateRuleSet assumes the fields exist and have the right types; this is the
+ * gate in front of it. Accepting `{}` as settings left the session "active" with no rules, and
+ * every visit to the table then threw while reading `rules.decks`.
+ */
+export function isRuleSet(v: unknown): v is RuleSet {
+  if (typeof v !== 'object' || v === null) return false
+  const r = v as Record<string, unknown>
+  const sb = r.sideBets as Record<string, unknown> | null | undefined
+  if (typeof sb !== 'object' || sb === null) return false
+  const shapeOk = typeof r.name === 'string' && typeof r.source === 'string'
+    && typeof r.decks === 'number' && typeof r.penetration === 'number'
+    && typeof r.minBet === 'number' && typeof r.maxBet === 'number'
+    && Number.isInteger(r.minBet) && Number.isInteger(r.maxBet)
+    && ['3:2', '6:5'].includes(r.blackjackPayout as string)
+    && ['any2', '9-11', '10-11'].includes(r.doubleOn as string)
+    && ['none', 'late'].includes(r.surrender as string)
+    && isBool(r.dealerHitsSoft17) && isBool(r.doubleAfterSplit) && isBool(r.resplitAces)
+    && isBool(r.dealerPeek) && isBool(r.insurance) && isBool(r.evenMoneyOffered)
+    && isBool(r.fiveCard21Pays2to1)
+    && ['off', 'MA-A', 'MA-B', 'AC-XTREME'].includes(sb.twentyOnePlusThree as string)
+    && ['off', 'MA-A', 'MA-B'].includes(sb.luckyLadies as string)
+    && isBool(sb.matchTheDealer)
+    && ['off', 'A', 'B', 'C', 'D', 'E', 'F'].includes(sb.buster as string)
+  return shapeOk && validateRuleSet(v as RuleSet).length === 0
+}
+
 export function validateRuleSet(rules: RuleSet): string[] {
   const errors: string[] = []
   if (![1, 2, 4, 6, 8].includes(rules.decks)) errors.push('decks must be 1, 2, 4, 6 or 8 (MA §2(a))')
