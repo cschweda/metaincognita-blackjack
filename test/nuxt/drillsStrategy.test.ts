@@ -38,8 +38,34 @@ describe('StrategyFlash', () => {
   it('replays mistakeBag situations (seeded rng path executes fromMistakeKey)', async () => {
     const store = useBlackjackStore()
     store.training.mistakeBag['hard|16|10'] = 3
-    const w = await mountSuspended(StrategyFlash, { props: { rng: mulberry32(1) } }) // first rng() = 0.2536 < 0.5 → replay path
+    // a constant below 0.5 takes the replay branch. (This used mulberry32(1), whose first draw is
+    // 0.627 — the test passed without ever reaching fromMistakeKey.)
+    const w = await mountSuspended(StrategyFlash, { props: { rng: () => 0.1 } })
     expect(w.text()).toContain('Dealer shows')
+    expect(w.html()).toContain('10 of')
+    expect(w.html()).toContain('6 of')
+  })
+
+  it('a replayed mistake answered correctly is worked off the bag', async () => {
+    // Nothing ever removed a key, so one lifetime mistake stayed half of all questions forever.
+    const store = useBlackjackStore()
+    store.training.mistakeBag['hard|16|10'] = 2
+    const w = await mountSuspended(StrategyFlash, { props: { rng: () => 0.1 } }) // replay path
+    await w.find('[data-testid="flash-hit"]').trigger('click') // Vegas Strip, no surrender: book hits
+    expect(w.find('[data-testid="flash-verdict"]').text()).toContain('✓')
+    expect(store.training.mistakeBag['hard|16|10']).toBe(1)
+    store.resolveMistake('hard|16|10')
+    expect(store.training.mistakeBag).toEqual({}) // the key leaves at zero
+  })
+
+  it('rebuilds a soft-12 mistake as a pair of aces, not an ace and a rank-1 card', async () => {
+    // A,A that could not be split is filed as soft 12; total − 11 produced rank 1, which has no
+    // face and rendered a blank card labelled "1 of hearts".
+    const store = useBlackjackStore()
+    store.training.mistakeBag['soft|12|6'] = 1
+    const w = await mountSuspended(StrategyFlash, { props: { rng: () => 0.1 } })
+    expect(w.html()).not.toContain('1 of')
+    expect(w.html()).toContain('Ace of')
   })
 
   it('timed mode counts a timeout as a miss', async () => {

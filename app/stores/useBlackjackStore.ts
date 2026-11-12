@@ -317,6 +317,14 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     persistTraining()
   }
 
+  /** A drill replayed this mistake and the player got it right: one fewer on the pile. */
+  function resolveMistake(key: string): void {
+    const left = (training.value.mistakeBag[key] ?? 0) - 1
+    if (left > 0) training.value.mistakeBag[key] = left
+    else Reflect.deleteProperty(training.value.mistakeBag, key)
+    persistTraining()
+  }
+
   function recordInsuranceDecision(r: InsuranceRecord): void {
     const bucket = training.value.adherence.insurance
     bucket.decisions++
@@ -537,7 +545,7 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     training, countState,
     initSession, applyNet, recordRound, saveSnapshot, persist, restore, clearAll,
     setCountState, setRoundTrail, advanceBotState,
-    recordDecision, recordInsuranceDecision, recordCountCheck, recordDrillBest,
+    recordDecision, resolveMistake, recordInsuranceDecision, recordCountCheck, recordDrillBest,
     recordDrillTime, setBetRamp, setKeyboardShortcuts, setExposeMuckedHole
   }
 })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isEnteredNumber } from '~/utils/format'
 const props = withDefaults(defineProps<{
   rng?: () => number
 }>(), { rng: () => Math.random() })
@@ -30,7 +31,7 @@ const trayPct = computed(() =>
   Math.round(((question.value.decksTotal - question.value.decksRemaining) / question.value.decksTotal) * 100))
 
 function submit(): void {
-  if (entered.value === null || Number.isNaN(entered.value)) return
+  if (!isEnteredNumber(entered.value)) return
   const actual = question.value.rc / question.value.decksRemaining
   const correct = Math.abs(entered.value - actual) <= 0.5
   verdict.value = { correct, actual }

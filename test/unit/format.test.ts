@@ -23,3 +23,12 @@ describe('formatCents / signedCents — the family money format', () => {
     expect(signedCents(2500, { dp: 2 })).toBe('+$25.00')
   })
 })
+
+describe('isEnteredNumber', () => {
+  it('accepts only a real number — an emptied number input yields an empty string', async () => {
+    const { isEnteredNumber } = await import('../../app/utils/format')
+    expect([0, -3, 2.5].every(isEnteredNumber)).toBe(true)
+    expect(['', '-', null, undefined, Number.NaN, Number.POSITIVE_INFINITY].some(isEnteredNumber)).toBe(false)
+  })
+})
+

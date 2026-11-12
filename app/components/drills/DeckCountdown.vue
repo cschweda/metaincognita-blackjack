@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isEnteredNumber } from '~/utils/format'
 import type { Card } from '~/utils/engine/cards'
 import { buildDeck, displayCard, shuffle } from '~/utils/engine/cards'
 import { hiLoValue } from '~/utils/engine/counting'
@@ -89,7 +90,7 @@ function stopTicker(): void {
 }
 
 function submit(): void {
-  if (entered.value === null || Number.isNaN(entered.value)) return
+  if (!isEnteredNumber(entered.value)) return
   correct.value = entered.value === expected.value
   if (correct.value) store.recordDrillTime('deck-countdown', elapsedMs.value)
   phase.value = 'verdict'

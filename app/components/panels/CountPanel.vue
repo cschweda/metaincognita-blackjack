@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useCounting } from '~/composables/useCounting'
 import { edgeResolution } from '~/utils/engine/basicStrategy'
-import { formatAdvantage } from '~/utils/format'
+import { formatAdvantage, isEnteredNumber } from '~/utils/format'
 
 const store = useBlackjackStore()
 const counting = useCounting()
@@ -22,13 +22,13 @@ const quizInput = ref<number | null>(null)
 const inputEl = ref<{ inputRef?: HTMLInputElement } | null>(null)
 
 function submitCheck(): void {
-  if (checkInput.value === null || Number.isNaN(checkInput.value)) return
+  if (!isEnteredNumber(checkInput.value)) return
   counting.checkCount(checkInput.value)
   checkInput.value = null
 }
 
 function submitQuiz(): void {
-  if (quizInput.value === null || Number.isNaN(quizInput.value)) return
+  if (!isEnteredNumber(quizInput.value)) return
   counting.answerShuffleQuiz(quizInput.value)
   quizInput.value = null
 }
@@ -109,6 +109,7 @@ defineExpose({ focusCheck })
         <p
           v-if="counting.lastCheck.value"
           class="mt-1"
+          role="status"
           :class="counting.lastCheck.value.correct ? 'text-emerald-400' : 'text-red-400'"
           data-testid="count-verdict"
         >
@@ -131,6 +132,7 @@ defineExpose({ focusCheck })
             v-model.number="quizInput"
             type="number"
             size="xs"
+            aria-label="Final running count before the shuffle"
             data-testid="shuffle-quiz-input"
             @keydown.enter="submitQuiz"
           />
