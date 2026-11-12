@@ -398,4 +398,3 @@ describe('liveDeviations — the deviations that are real under a rule set', () 
     expect(ids(noInsurance)).not.toContain('insurance')
   })
 })
-

@@ -544,6 +544,17 @@ export function useGameLoop() {
     if (!spot) return 0
     return atRisk(spot)
   })
+  /**
+   * The cut card is out: the next deal comes from a fresh shoe (beginRound reshuffles first), so
+   * the count on screen describes cards that will not be dealt. Anything that sizes the NEXT bet
+   * must read this — the Bet Lab's bettingTc() already bets TC 0 here.
+   */
+  const shuffleDue = computed(() => {
+    void gameGen.value
+    void queueIdle.value
+    void phase.value
+    return !!game && (game.phase === 'complete' || game.phase === 'betting') && game.shoe.needsShuffle()
+  })
   const heroTurn = computed(() => {
     void gameGen.value
     // the engine is non-reactive, so invalidation must come from presentation state.
@@ -766,7 +777,7 @@ export function useGameLoop() {
 
   return {
     phase, dealerRow, spotsView, announcements, liveText, outcomeLive, queueIdle, trayFill,
-    canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision,
+    canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision, shuffleDue,
     startSession, restoreSession, beginRound, act, heroInsurance, endSession, setExposeMuckedHole
   }
 }

@@ -6,6 +6,7 @@ import { useCounting } from '~/composables/useCounting'
 import { betForTc, bucketForTc } from '~/utils/betRamp'
 import { adviseHand, adviseInsurance, summarizeRound } from '~/utils/advisor'
 import type { RoundSummary } from '~/utils/advisor'
+import { formatCents } from '~/utils/format'
 import CountPanel from '~/components/panels/CountPanel.vue'
 
 const store = useBlackjackStore()
@@ -74,12 +75,21 @@ const betHint = computed<string | null>(() => {
   if (store.settings.count === 'off' || !store.settings.advancedDeviations) return null
   if (store.settings.advisor === 'exam') return null
   if (!betweenRounds.value) return null
-  const tc = counting.tc.value
+  // Cut card out → the next hand comes off a fresh shoe, so the live count is dead for sizing
+  // (the Lab's bettingTc makes the same call). Sizing on it told the player to press a +5 bet
+  // into a shoe that starts at zero.
+  const fresh = loop.shuffleDue.value
+  const tc = fresh ? 0 : counting.tc.value
   const tcText = `${tc >= 0 ? '+' : '−'}${Math.abs(tc).toFixed(1)}`
-  if (ramp.wongOut && bucketForTc(tc) === 0) return `Ramp: sit out — TC ${tcText}`
+  // The exact count is printed only where the count is on display. In self-check mode it is
+  // hidden so the player has to keep it; a fresh shoe's zero is public either way.
+  const context = fresh
+    ? ` — fresh shoe next, TC ${tcText}`
+    : store.settings.count === 'shown' ? ` — TC ${tcText}` : ''
+  if (ramp.wongOut && bucketForTc(tc) === 0) return `Ramp: sit out${context}`
   const cents = betForTc(ramp, tc, rules.value)
-  const units = Math.round((cents / ramp.unitCents) * 10) / 10
-  return `Ramp: bet ${units} unit${units === 1 ? '' : 's'} ($${(cents / 100).toLocaleString()}) — TC ${tcText}`
+  const units = ramp.unitCents > 0 ? Math.round((cents / ramp.unitCents) * 10) / 10 : 0
+  return `Ramp: bet ${units} unit${units === 1 ? '' : 's'} (${formatCents(cents)})${context}`
 })
 const latestAnnouncement = computed(() => announcements.value[announcements.value.length - 1]?.text ?? '')
 
@@ -118,18 +128,62 @@ watch(phase, (p) => {
   })
 })
 
+// The action buttons unmount when the round settles, which drops focus on <body>. Hand it to
+// Deal (or a chip, when no bet is armed) so the next round is one keypress away — but only when
+// focus was actually lost, never out from under something the user chose.
+function focusLost(): boolean {
+  const active = document.activeElement
+  return !active || active === document.body || !active.isConnected
+}
+function focusNextBet(retry: boolean): void {
+  if (!betweenRounds.value || !focusLost()) return
+  const deal = document.querySelector<HTMLElement>('[data-testid="deal"]:not([disabled])')
+  if (deal) return deal.focus()
+  // Deal is briefly disabled by its own double-click cooldown when a hand resolves within a
+  // moment of the deal — look once more after it lifts before settling for a chip
+  if (retry) return void setTimeout(() => focusNextBet(false), 400)
+  document.querySelector<HTMLElement>('[data-testid^="chip-"]:not([disabled])')?.focus()
+}
+watch(betweenRounds, (v) => {
+  if (v) void nextTick(() => focusNextBet(true))
+})
+
 // Keyboard map (spec §6): H/S/D/P/R act, B rebet, Space deal
 const studyMode = ref(false)
 
 const actionBar = ref<{ rebet: () => void, deal: () => void } | null>(null)
 const KEYS: Record<string, Action> = { h: 'hit', s: 'stand', d: 'double', p: 'split', r: 'surrender' }
+const NATIVE_SPACE = 'button, a[href], summary, [role="button"], [role="switch"], [role="checkbox"], [role="tab"], [role="slider"]'
+
+/**
+ * Space belongs to a control the user reached BY KEYBOARD: that is how a button, switch or tab is
+ * activated. The page shortcut used to take it regardless and deal the armed bet — so tabbing to
+ * Clear, a chip, Study, or the Keys toggle itself and pressing Space dealt a round instead.
+ *
+ * A control focused by a mouse click does not count (:focus-visible is false for it), so the
+ * common "click chips, hit Space to deal" flow is unchanged.
+ */
+function spaceBelongsToControl(el: HTMLElement | null): boolean {
+  const control = el?.closest?.(NATIVE_SPACE)
+  if (!control) return false
+  try {
+    return control.matches(':focus-visible')
+  } catch {
+    return true // no :focus-visible support — assume the keyboard, the safe reading
+  }
+}
+
 function onKey(e: KeyboardEvent): void {
   if (!store.training.keyboardShortcuts) return // WCAG 2.1.4: single-key shortcuts are optional
   if (studyMode.value) return
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
-  const tag = (e.target as HTMLElement | null)?.tagName
+  const el = e.target as HTMLElement | null
+  const tag = el?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+  // a dialog owns the keyboard while it is open (the leave-table confirm, a select's listbox)
+  if (el?.closest?.('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return
   const key = e.key.toLowerCase()
+  if (key === ' ' && spaceBelongsToControl(el)) return
   if (key === ' ' && betweenRounds.value) {
     e.preventDefault()
     actionBar.value?.deal()
@@ -233,7 +287,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     <!-- controls -->
     <div class="shrink-0 px-2 pb-2">
       <div class="mb-1 flex items-center justify-between px-1 text-xs text-neutral-400">
-        <span v-if="inPlay > 0">In play: <span class="font-mono text-[var(--accent-cream)]">${{ (inPlay / 100).toLocaleString() }}</span></span>
+        <span v-if="inPlay > 0">In play: <span class="font-mono text-[var(--accent-cream)]">{{ formatCents(inPlay) }}</span></span>
         <span v-else>Place your bet — table ${{ (rules.minBet / 100).toLocaleString() }}–${{ (rules.maxBet / 100).toLocaleString() }}</span>
         <div class="flex items-center gap-2">
           <UButton

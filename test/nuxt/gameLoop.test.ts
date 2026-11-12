@@ -564,4 +564,3 @@ describe('inPlay — money still at risk', () => {
     expect(loop.inPlay.value).toBe(1000)
   })
 })
-
