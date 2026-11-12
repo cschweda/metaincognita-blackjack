@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  adviseHand, adviseInsurance, advisedPlay, decisionCost, pctEV, SIDE_BET_CAUTION, summarizeRound
+  adviseHand, adviseInsurance, advisedPlay, decisionCost, liveDeviations, pctEV, SIDE_BET_CAUTION, summarizeRound
 } from '../../app/utils/advisor'
 import type { RoundRecord } from '../../app/stores/useBlackjackStore'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
@@ -363,6 +363,39 @@ describe('reporting a decision that was graded against a count call', () => {
     expect(line).toContain('stand on hard 16 vs 10')
     expect(line).toContain('Count')
     expect(line).not.toMatch(/^Book:/)
+  })
+})
+
+describe('liveDeviations — the deviations that are real under a rule set', () => {
+  const ids = (rules: typeof VEGAS) => liveDeviations(rules).map(d => d.dev.id)
+  const thresholdOf = (rules: typeof VEGAS, id: string) =>
+    liveDeviations(rules).find(d => d.dev.id === id)?.threshold
+
+  it('uses the surrender-adjusted index where late surrender is on the table', () => {
+    // The Learn page printed "Stand 16 vs T — TC ≥ 0" on late-surrender presets while the advisor
+    // graded against +4 (below that the book surrenders), and listed "Stand 15 vs T — TC ≥ 4"
+    // where the advisor never stands at all.
+    expect(thresholdOf(VEGAS, '16vT-stand')).toEqual({ kind: 'min', value: 0 })
+    expect(thresholdOf(MA, '16vT-stand')).toEqual({ kind: 'min', value: 4 })
+    expect(ids(VEGAS)).toContain('15vT-stand')
+    expect(ids(MA)).not.toContain('15vT-stand')
+  })
+
+  it('lists the Fab 4 only where surrender exists', () => {
+    expect(ids(MA)).toContain('fab-14vT')
+    expect(ids(VEGAS).filter(id => id.startsWith('fab-'))).toEqual([])
+  })
+
+  it('drops a deviation the table cannot offer or the book already plays', () => {
+    const restricted = { ...cloneRules(VEGAS), doubleOn: '10-11' as const }
+    expect(ids(VEGAS)).toContain('9v2-double')
+    expect(ids(restricted)).not.toContain('9v2-double') // hard 9 cannot double here
+    expect(ids(restricted)).not.toContain('9v7-double')
+    const h17 = { ...cloneRules(VEGAS), dealerHitsSoft17: true }
+    expect(ids(h17)).not.toContain('11vA-double') // already the book play under H17
+    const noInsurance = { ...cloneRules(VEGAS), insurance: false, evenMoneyOffered: false }
+    expect(ids(VEGAS)).toContain('insurance')
+    expect(ids(noInsurance)).not.toContain('insurance')
   })
 })
 

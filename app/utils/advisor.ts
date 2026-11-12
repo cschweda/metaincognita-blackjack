@@ -6,7 +6,7 @@ import { handTotal, isPair } from './engine/hand'
 import { bookPlay, clampToLegal } from './engine/basicStrategy'
 import type { Deviation } from './engine/counting'
 import type { DecisionRecord, RoundRecord } from '../stores/useBlackjackStore'
-import { FAB_4, ILLUSTRIOUS_18, deviationFor } from './engine/counting'
+import { FAB_4, ILLUSTRIOUS_18, deviationFor, deviationThreshold } from './engine/counting'
 import { formatCents, signedCents } from './format'
 
 export interface AdvisorInput {
@@ -122,6 +122,46 @@ export function adviseInsurance(tc: number, advanced: boolean): { take: boolean,
  */
 export function advisedPlay(d: Pick<DecisionRecord, 'book' | 'deviationPlay'>): Action {
   return d.deviationPlay ?? d.book
+}
+
+export interface LiveDeviation {
+  dev: Deviation
+  /** The index that actually governs under these rules (surrender-adjusted where it applies). */
+  threshold: { kind: 'min' | 'max', value: number }
+  /** What basic strategy does with the hand under these rules. */
+  book: string
+}
+
+/**
+ * The deviations that are REAL deviations under a rule set, each with the threshold the advisor
+ * grades against. The Learn table and the Deviation Quiz both read this, so neither can teach an
+ * index the table then marks wrong:
+ *
+ * - the play must be on offer (Fab 4 needs late surrender; a restricted double rule removes the
+ *   hard-9 doubles; insurance needs the insurance rule),
+ * - it must be reachable (15 v T never stands while surrender is available), and
+ * - it must differ from the book (11 v A is simply the book double under H17).
+ *
+ * Judged for the opening two-card decision, which is where every one of these indices is defined.
+ */
+export function liveDeviations(rules: RuleSet): LiveDeviation[] {
+  const surrenderLegal = rules.surrender === 'late'
+  const out: LiveDeviation[] = []
+  for (const dev of [...ILLUSTRIOUS_18, ...FAB_4]) {
+    const threshold = deviationThreshold(dev, surrenderLegal)
+    if (dev.play === 'take-insurance') {
+      if (rules.insurance) out.push({ dev, threshold, book: 'decline' })
+      continue
+    }
+    if (!Number.isFinite(threshold.value)) continue
+    const rec = bookPlay(rules, dev.up, {
+      total: dev.total, soft: dev.soft, twoCards: true, fromSplit: false, pair: dev.pair
+    })
+    if (rec.evs[dev.play] === undefined) continue // the table does not offer this play
+    if (rec.action === dev.play) continue
+    out.push({ dev, threshold, book: rec.action })
+  }
+  return out
 }
 
 export const SIDE_BET_CAUTION

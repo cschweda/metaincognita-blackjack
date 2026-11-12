@@ -130,7 +130,7 @@ export function myths(f: EngineFacts) {
     {
       title: 'Never bust — let the dealer do it',
       claim: '"Never hit a hand that can break."',
-      truth: `Standing on 16 vs 10 loses ~${f.sixteenVsTen.standLoss}% of your stake; hitting loses ~${f.sixteenVsTen.hitLoss}%. Refusing to bust just means losing slowly to made dealer hands. Nancy's leak, quantified on the Analysis page.`
+      truth: `Standing on 16 vs 10 loses ~${f.sixteenVsTen.standLoss}% of your stake; hitting loses ~${f.sixteenVsTen.hitLoss}%. That is the closest call on the chart — against a 7, 8 or 9 the gap is several points. Refusing to bust just means losing slowly to made dealer hands. Nancy's leak, quantified on the Analysis page.`
     }
   ]
 }
