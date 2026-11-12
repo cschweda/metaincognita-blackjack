@@ -158,7 +158,7 @@ export const PRESETS: Readonly<Record<string, Readonly<RuleSet>>> = Object.freez
   }),
   CUSTOM: freeze({
     name: 'Custom',
-    source: 'User-defined (editor seeds from Vegas Strip 6-deck)',
+    source: 'User-defined (starts as 6 decks, S17, DAS, late surrender, all side bets)',
     decks: 6,
     dealerHitsSoft17: false,
     blackjackPayout: '3:2',

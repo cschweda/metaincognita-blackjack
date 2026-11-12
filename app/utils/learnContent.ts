@@ -58,7 +58,7 @@ export function historyEras(f: EngineFacts) {
     {
       era: 'Today',
       title: 'The arms race you practice against',
-      body: `Six- and eight-deck shoes, shallow penetration, continuous shufflers, and 6:5 blackjack payouts (spreading since the early 2000s, ≈ +${f.payoutDeltaPct}% to the edge). Every preset here is built from a real rulebook — including the 6:5 single-deck trap, kept on purpose as the teaching example.`
+      body: `Six- and eight-deck shoes, shallow penetration, continuous shufflers, and 6:5 blackjack payouts (spreading since the early 2000s, ≈ +${f.payoutDeltaPct}% to the edge). Three presets here are built from real rulebooks; the Vegas Strip benchmark and the 6:5 single-deck trap are generic games, the second kept on purpose as the teaching example.`
     }
   ]
 }
