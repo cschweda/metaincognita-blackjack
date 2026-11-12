@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { AdvisorRecommendation, RoundSummary } from '~/utils/advisor'
-import { pctEV } from '~/utils/advisor'
+import { advisedPlay, pctEV } from '~/utils/advisor'
 import type { AdvisorIntensity, DecisionRecord } from '~/stores/useBlackjackStore'
 import type { Action } from '~/utils/engine/hand'
 
@@ -150,13 +150,13 @@ const open = ref(true) // collapsible (spec §6)
             v-if="lastDecision.correct"
             class="font-semibold text-emerald-400"
           >
-            ✓ Book agrees with {{ ACTION_LABEL[lastDecision.action] }}
+            ✓ {{ lastDecision.deviationPlay ? 'Count call:' : 'Book agrees with' }} {{ ACTION_LABEL[lastDecision.action] }}
           </p>
           <p
             v-else
             class="font-semibold text-red-400"
           >
-            ✗ Book: {{ ACTION_LABEL[lastDecision.book] }}
+            ✗ {{ lastDecision.deviationPlay ? 'Count call' : 'Book' }}: {{ ACTION_LABEL[advisedPlay(lastDecision)] }}
             <span v-if="lastDecision.costCents > 0"> — cost ≈${{ (lastDecision.costCents / 100).toFixed(2) }}</span>
           </p>
         </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  adviseHand, adviseInsurance, decisionCost, pctEV, SIDE_BET_CAUTION, summarizeRound
+  adviseHand, adviseInsurance, advisedPlay, decisionCost, pctEV, SIDE_BET_CAUTION, summarizeRound
 } from '../../app/utils/advisor'
 import type { RoundRecord } from '../../app/stores/useBlackjackStore'
 import { PRESETS, cloneRules } from '../../app/utils/engine/rules'
@@ -316,3 +316,53 @@ describe('split is priced for the ladder the rules actually offer', () => {
     expect(firstSplit.evs.split).toBeCloseTo(chart.evs.split!, 12)
   })
 })
+
+describe('a deviation that only restates the book is not a count call', () => {
+  it('3-card 15 v T in a negative shoe: the book already hits, so nothing is flagged', () => {
+    // fab-15vT-keep says "hit instead of surrendering". With three cards surrender is gone and the
+    // book play IS hit — yet the advisor badged it a count call, persisted a deviationId, and the
+    // table announced "First correct deviation" for a plain basic-strategy hit.
+    const rec = adviseHand(
+      { cards: [c(5), c(4, 'hearts'), c(6, 'clubs')], fromSplit: false },
+      c(10, 'clubs'), MA, -1, true, ['hit', 'stand'])
+    expect(rec.book).toBe('hit')
+    expect(rec.action).toBe('hit')
+    expect(rec.deviation).toBeNull()
+    expect(rec.reasoning).not.toContain('Count call')
+  })
+})
+
+describe('reporting a decision that was graded against a count call', () => {
+  const missed = {
+    handIndex: 0, cards: ['10♠', '6♣'], total: 16, soft: false, pair: false, pairBucket: null,
+    upBucket: 10, dealerUp: '10♦', action: 'hit' as const, book: 'hit' as const,
+    deviationId: '16vT-stand', deviationPlay: 'stand' as const, correct: false, costCents: 0,
+    evs: { hit: -0.54, stand: -0.54 }, rc: 6, tc: 1, category: 'hard' as const
+  }
+
+  it('advisedPlay is the play the decision was graded against', () => {
+    expect(advisedPlay(missed)).toBe('stand')
+    expect(advisedPlay({ ...missed, deviationId: null, deviationPlay: null })).toBe('hit')
+  })
+
+  it('the recap names the count play, not the book play the player just made', () => {
+    const round: RoundRecord = {
+      round: 1, at: 1, visibleCards: [],
+      dealer: { cards: ['10♦', '7♠'], total: 17, blackjack: false, busted: false },
+      spots: [{
+        occupant: 'hero',
+        hands: [{ cards: ['10♠', '6♣', '9♥'], bet: 2500, outcome: 'lose', net: -2500, doubled: false, fromSplit: false, total: 25, soft: false }],
+        sideBets: [],
+        insuranceNet: 0
+      }],
+      heroDecisions: [missed],
+      heroInsurance: null
+    }
+    const line = summarizeRound(round)!.moments[0]!
+    // was: "Book: draw on hard 16 vs 10 — you drew"
+    expect(line).toContain('stand on hard 16 vs 10')
+    expect(line).toContain('Count')
+    expect(line).not.toMatch(/^Book:/)
+  })
+})
+

@@ -88,7 +88,11 @@ export function adviseHand(
       { total, soft, pair: isPairHand && legal.includes('split') ? bucketOf(input.cards[0]!) : null },
       upB, tc, pool,
       legal.includes('surrender'))
-    if (dev && dev.play !== 'take-insurance' && legal.includes(dev.play as Action)) {
+    // A deviation that lands on the book play is not a deviation. fab-15vT-keep ("hit, do not
+    // surrender") matches a three-card 15 where surrender is already gone, and 11vA-double matches
+    // an H17 table whose book doubles anyway — both were badged as count calls, persisted with a
+    // deviationId, and credited as "First correct deviation" for a plain basic-strategy play.
+    if (dev && dev.play !== 'take-insurance' && dev.play !== book && legal.includes(dev.play as Action)) {
       deviation = dev
       action = dev.play as Action
     }
@@ -108,6 +112,16 @@ export function adviseInsurance(tc: number, advanced: boolean): { take: boolean,
     return { take: true, reasoning: `TC ${tc.toFixed(1)} ≥ +3 — insurance is profitable here (Illustrious 18 #1).` }
   }
   return { take: false, reasoning: 'Book play: never take insurance — 2:1 pay on worse-than-2:1 odds.' }
+}
+
+/**
+ * The play a recorded decision was graded against: the count's play when a deviation was live,
+ * the book's otherwise. `book` alone is pure basic strategy, so printing it beside a decision
+ * graded on a deviation told a player who had just made the book play that the book said
+ * otherwise — or congratulated a correct count stand with "Book agrees" when the book hits.
+ */
+export function advisedPlay(d: Pick<DecisionRecord, 'book' | 'deviationPlay'>): Action {
+  return d.deviationPlay ?? d.book
 }
 
 export const SIDE_BET_CAUTION
@@ -238,7 +252,7 @@ export function summarizeRound(round: RoundRecord): RoundSummary | null {
 
   const decisions = round.heroDecisions ?? []
   const mistakes = decisions.filter(d => !d.correct).map(d =>
-    `Book: ${ACTION_GERUND[d.book]} ${situationOf(d)} — you ${ACTION_PAST[d.action]}${d.costCents > 0 ? ` (cost ${formatCents(d.costCents)})` : ''}`)
+    `${d.deviationPlay ? `Count call at TC ${d.tc.toFixed(1)}` : 'Book'}: ${ACTION_GERUND[advisedPlay(d)]} ${situationOf(d)} — you ${ACTION_PAST[d.action]}${d.costCents > 0 ? ` (cost ${formatCents(d.costCents)})` : ''}`)
   const confirmations = decisions.filter(d => d.correct).map(d =>
     d.deviationId
       ? `Count call: ${ACTION_GERUND[d.action]} ${situationOf(d)} at TC ${d.tc.toFixed(1)} ✓`

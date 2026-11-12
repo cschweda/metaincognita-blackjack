@@ -245,7 +245,12 @@ export const useBlackjackStore = defineStore('blackjack', () => {
     const bucket = training.value.adherence[d.category]
     bucket.decisions++
     if (d.correct) bucket.correct++
-    else training.value.mistakeBag[mistakeKey(d)] = (training.value.mistakeBag[mistakeKey(d)] ?? 0) + 1
+    // The bag feeds Strategy Flash, which drills BASIC strategy. A missed count call where the
+    // player made the book play is graded wrong, but it is not a basic-strategy mistake — filing it
+    // here made the drill replay the hand and demand the very play they had made.
+    else if (d.action !== d.book) {
+      training.value.mistakeBag[mistakeKey(d)] = (training.value.mistakeBag[mistakeKey(d)] ?? 0) + 1
+    }
     persistTraining()
   }
 

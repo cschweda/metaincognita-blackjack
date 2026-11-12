@@ -720,7 +720,7 @@ export function useGameLoop() {
     decisionsThisRound.push(decision)
     lastDecision.value = decision
     if (store.settings!.advisor !== 'exam' && !decision.correct) {
-      pushAnnouncement(`Book: ${rec.action}${decision.costCents > 0 ? ` — that cost ≈$${(decision.costCents / 100).toFixed(2)}` : ''}`)
+      pushAnnouncement(`${rec.deviation ? 'Count call' : 'Book'}: ${rec.action}${decision.costCents > 0 ? ` — that cost ≈$${(decision.costCents / 100).toFixed(2)}` : ''}`)
     }
     game.act(heroSpot(), action)
     void pump()
