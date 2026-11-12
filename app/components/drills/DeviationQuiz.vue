@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Deviation } from '~/utils/engine/counting'
-import { FAB_4, ILLUSTRIOUS_18, deviationActive, deviationThreshold } from '~/utils/engine/counting'
-import { bookPlay } from '~/utils/engine/basicStrategy'
+import { deviationActive, deviationThreshold } from '~/utils/engine/counting'
+import { liveDeviations } from '~/utils/advisor'
 import { PRESETS } from '~/utils/engine/rules'
 
 const props = withDefaults(defineProps<{
@@ -12,23 +12,15 @@ const store = useBlackjackStore()
 const rules = computed(() => store.settings?.rules ?? PRESETS.VEGAS_STRIP_6D!)
 const surrenderLegal = computed(() => rules.value.surrender === 'late')
 
+/** Only deviations that are real under the active rules — the same list the Learn table prints
+ *  (see liveDeviations): on offer, reachable, and different from what the book already does. */
+const live = computed(() => liveDeviations(rules.value))
+const pool = computed<Deviation[]>(() => live.value.map(d => d.dev))
+
 /** The book side comes from the EV engine under the active rules — computed, not transcribed. */
 function bookPlayFor(dev: Deviation): string {
-  if (dev.id === 'insurance') return 'decline'
-  return bookPlay(rules.value, dev.up, {
-    total: dev.total, soft: dev.soft, twoCards: true, fromSplit: false, pair: dev.pair
-  }).action
+  return live.value.find(d => d.dev.id === dev.id)?.book ?? 'decline'
 }
-
-/** Only quiz deviations that are real deviations under the active rules: the play must be
- *  available (Fab 4 needs late surrender), reachable (a finite threshold), and different
- *  from what the book already does (11vA-double is simply book under H17). */
-const pool = computed<Deviation[]>(() => [...ILLUSTRIOUS_18, ...FAB_4].filter((dev) => {
-  if (dev.id === 'insurance') return true
-  if (dev.play === 'surrender' && !surrenderLegal.value) return false
-  if (!Number.isFinite(deviationThreshold(dev, surrenderLegal.value).value)) return false
-  return bookPlayFor(dev) !== dev.play
-}))
 
 interface Question {
   dev: Deviation

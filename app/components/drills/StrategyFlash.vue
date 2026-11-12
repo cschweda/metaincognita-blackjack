@@ -19,6 +19,8 @@ const suit = (i: number): Suit => SUITS[i % 4]!
 interface Situation {
   cards: Card[]
   up: Card
+  /** Set when this hand was drawn from the mistake bag — a correct answer works it off. */
+  bagKey?: string
 }
 
 function rankFor(bucket: number): number {
@@ -36,8 +38,13 @@ function fromMistakeKey(key: string): Situation | null {
     return { cards: [{ rank: r, suit: suit(0) }, { rank: r, suit: suit(1) }], up: { rank: rankFor(up), suit: suit(2) } }
   }
   if (kind === 'soft') {
-    return { cards: [{ rank: 14, suit: suit(0) }, { rank: total - 11, suit: suit(1) }], up: { rank: rankFor(up), suit: suit(2) } }
+    // soft 12 is A,A (filed as soft when the pair could not be split) — total − 11 would be a
+    // rank-1 card, which has no face
+    const kicker = total === 12 ? 14 : total - 11
+    if (kicker < 2 || kicker > 14) return null
+    return { cards: [{ rank: 14, suit: suit(0) }, { rank: kicker, suit: suit(1) }], up: { rank: rankFor(up), suit: suit(2) } }
   }
+  if (total < 4 || total > 20) return null
   const a = Math.min(10, total - 2)
   return { cards: [{ rank: a, suit: suit(0) }, { rank: total - a, suit: suit(1) }], up: { rank: rankFor(up), suit: suit(2) } }
 }
@@ -47,7 +54,7 @@ function randomSituation(): Situation {
   if (bagKeys.length > 0 && props.rng() < 0.5) {
     const key = bagKeys[Math.floor(props.rng() * bagKeys.length)]!
     const rebuilt = fromMistakeKey(key)
-    if (rebuilt) return rebuilt
+    if (rebuilt) return { ...rebuilt, bagKey: key }
   }
   const upBucket = 2 + Math.floor(props.rng() * 10) // 2..11
   const up: Card = { rank: rankFor(upBucket), suit: suit(2) }
@@ -131,6 +138,9 @@ function answer(action: Action): void {
   stopClock()
   const correct = action === bookAction.value
   verdict.value = { chosen: action, correct, book: bookAction.value }
+  // a mistake replayed and answered right has been learned once — the bag only ever grew, so a
+  // single slip at the table stayed half of every session's questions for good
+  if (correct && situation.value.bagKey) store.resolveMistake(situation.value.bagKey)
   grade(correct)
   announce(verdictMessage.value)
 }

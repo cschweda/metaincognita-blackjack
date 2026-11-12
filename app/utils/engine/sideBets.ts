@@ -107,7 +107,18 @@ export const MATCH_THE_DEALER_PAYS: Partial<Record<number, MtdPays>> = {
   8: { twoSuited: 28, suitedPlusUnsuited: 17, oneSuited: 14, twoUnsuited: 6, oneUnsuited: 3 }
 }
 
-/** Ten-value cards match identical rank only (MA §23(a)): a 10 never matches a K. */
+/**
+ * Whether Match the Dealer can be dealt at this deck count. MA §23(f) publishes pay tables for
+ * 2, 4, 6 and 8 decks only; a one-deck game has none. The wager used to be accepted there anyway
+ * and paid from the 6-deck column — odds no rulebook posts for that game. The betting UI and the
+ * engine both ask this, so the wager is simply not on the layout where it cannot be priced.
+ */
+export function matchTheDealerOffered(decks: number): boolean {
+  return MATCH_THE_DEALER_PAYS[decks] !== undefined
+}
+
+/** Ten-value cards match identical rank only (MA §23(a)): a 10 never matches a K. Callers gate
+ *  on `matchTheDealerOffered`; the 6-deck fallback only keeps this total for a direct call. */
 export function evaluateMatchTheDealer(player: [Card, Card], dealerUp: Card, decks: number): SideBetResult {
   const pays = MATCH_THE_DEALER_PAYS[decks] ?? MATCH_THE_DEALER_PAYS[6]!
   const matches = player.filter(c => c.rank === dealerUp.rank)

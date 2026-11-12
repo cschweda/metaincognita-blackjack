@@ -110,6 +110,19 @@ describe('useBlackjackStore', () => {
     expect(store.training.mistakeBag['hard|16|10']).toBe(1)
   })
 
+  it('a missed count call does not enter the basic-strategy mistake bag', () => {
+    // The player made the BOOK play and missed a deviation. Filing that under hard|16|10 made
+    // Strategy Flash drill the hand expecting Hit — the play they had just made.
+    const store = started()
+    store.recordDecision({
+      handIndex: 0, cards: ['10♠', '6♣'], total: 16, soft: false, pair: false, pairBucket: null,
+      upBucket: 10, dealerUp: '10♦', action: 'hit', book: 'hit', deviationId: '16vT-stand', deviationPlay: 'stand',
+      correct: false, costCents: 0, evs: { hit: -0.54, stand: -0.54 }, rc: 6, tc: 1, category: 'hard'
+    })
+    expect(store.training.adherence.hard).toEqual({ decisions: 1, correct: 0 })
+    expect(store.training.mistakeBag).toEqual({})
+  })
+
   it('training stats survive clearAll (lifetime key)', () => {
     const store = started()
     store.recordDrillBest('strategy-flash', 7)

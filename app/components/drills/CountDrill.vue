@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isEnteredNumber } from '~/utils/format'
 import type { Card } from '~/utils/engine/cards'
 import { buildShoeCards, shuffle } from '~/utils/engine/cards'
 import { hiLoValue } from '~/utils/engine/counting'
@@ -75,7 +76,7 @@ function stopTimer(): void {
 }
 
 function submit(): void {
-  if (entered.value === null || Number.isNaN(entered.value)) return
+  if (!isEnteredNumber(entered.value)) return
   correct.value = entered.value === actual.value
   store.recordCountCheck(entered.value, actual.value)
   grade(correct.value)

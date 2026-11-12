@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ILLUSTRIOUS_18, FAB_4 } from '~/utils/engine/counting'
+import { liveDeviations } from '~/utils/advisor'
 import {
   TWENTY_ONE_PLUS_THREE_PAYS, LUCKY_LADIES_PAYS, MATCH_THE_DEALER_PAYS, BUSTER_PAYS
 } from '~/utils/engine/sideBets'
@@ -30,7 +30,9 @@ const sixteenVsTen = computed(() => {
   const evs = actionEVs(
     { total: 16, soft: false, twoCards: true, fromSplit: false },
     evalContext(activeRules.value, 10))
-  return { standLoss: Math.round(-evs.stand * 100), hitLoss: Math.round(-evs.hit * 100) }
+  // one decimal: this is the closest call in the book, and whole percents printed the two figures
+  // as the same number ("loses ~54% … hitting loses ~54%") under the sentence that contrasts them
+  return { standLoss: Math.round(-evs.stand * 1000) / 10, hitLoss: Math.round(-evs.hit * 1000) / 10 }
 })
 
 const tabs = [
@@ -61,7 +63,8 @@ const TIDBITS = computed(() => tidbits(facts.value))
 const MYTHS = computed(() => myths(facts.value))
 const GLOSSARY = computed(() => glossary(facts.value))
 
-const DEVIATIONS = [...ILLUSTRIOUS_18, ...FAB_4]
+/** Real deviations under the active rules, with the index the advisor grades against. */
+const DEVIATIONS = computed(() => liveDeviations(activeRules.value))
 
 const SIDEBET_TABLES = [
   { name: '21+3 (MA §28(f) / AC Xtreme)', pays: TWENTY_ONE_PLUS_THREE_PAYS },
@@ -125,6 +128,7 @@ const MTD = MATCH_THE_DEALER_PAYS
       </h2>
       <p class="text-xs text-neutral-400">
         The Illustrious 18 + Fab 4 — the only departures from basic strategy worth memorizing first. Insurance at TC ≥ +3 is the single most valuable line.
+        Shown for {{ activeRules.name }}: indices shift where late surrender is offered, and plays these rules do not allow (or already make by the book) are left out.
       </p>
       <table
         class="w-full text-xs"
@@ -139,7 +143,7 @@ const MTD = MATCH_THE_DEALER_PAYS
         </thead>
         <tbody>
           <tr
-            v-for="dev in DEVIATIONS"
+            v-for="{ dev, threshold } in DEVIATIONS"
             :key="dev.id"
             class="border-t border-neutral-800 text-neutral-300"
           >
@@ -147,7 +151,7 @@ const MTD = MATCH_THE_DEALER_PAYS
               {{ dev.description }}
             </td>
             <td class="font-mono">
-              {{ dev.minTrueCount !== undefined ? `TC ≥ ${dev.minTrueCount}` : `TC < ${dev.maxTrueCount}` }}
+              {{ threshold.kind === 'min' ? `TC ≥ ${threshold.value}` : `TC < ${threshold.value}` }}
             </td>
             <td class="capitalize">
               {{ dev.play.replace('-', ' ') }}

@@ -52,6 +52,18 @@ describe('validateRuleSet', () => {
   })
 })
 
+describe('validateRuleSet on non-finite numbers', () => {
+  it('rejects NaN and Infinity — every range check is false for NaN, so they used to pass', () => {
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      for (const field of ['penetration', 'minBet', 'maxBet'] as const) {
+        const r = cloneRules(PRESETS.VEGAS_STRIP_6D)
+        r[field] = bad
+        expect(validateRuleSet(r).length, `${field}=${bad}`).toBeGreaterThan(0)
+      }
+    }
+  })
+})
+
 describe('cloneRules', () => {
   it('deep-copies so presets stay frozen', () => {
     const r = cloneRules(PRESETS.MA_205CMR)

@@ -58,7 +58,7 @@ export function historyEras(f: EngineFacts) {
     {
       era: 'Today',
       title: 'The arms race you practice against',
-      body: `Six- and eight-deck shoes, shallow penetration, continuous shufflers, and 6:5 blackjack payouts (spreading since the early 2000s, ≈ +${f.payoutDeltaPct}% to the edge). Every preset here is built from a real rulebook — including the 6:5 single-deck trap, kept on purpose as the teaching example.`
+      body: `Six- and eight-deck shoes, shallow penetration, continuous shufflers, and 6:5 blackjack payouts (spreading since the early 2000s, ≈ +${f.payoutDeltaPct}% to the edge). Three presets here are built from real rulebooks; the Vegas Strip benchmark and the 6:5 single-deck trap are generic games, the second kept on purpose as the teaching example.`
     }
   ]
 }
@@ -130,7 +130,7 @@ export function myths(f: EngineFacts) {
     {
       title: 'Never bust — let the dealer do it',
       claim: '"Never hit a hand that can break."',
-      truth: `Standing on 16 vs 10 loses ~${f.sixteenVsTen.standLoss}% of your stake; hitting loses ~${f.sixteenVsTen.hitLoss}%. Refusing to bust just means losing slowly to made dealer hands. Nancy's leak, quantified on the Analysis page.`
+      truth: `Standing on 16 vs 10 loses ~${f.sixteenVsTen.standLoss}% of your stake; hitting loses ~${f.sixteenVsTen.hitLoss}%. That is the closest call on the chart — against a 7, 8 or 9 the gap is several points. Refusing to bust just means losing slowly to made dealer hands. Nancy's leak, quantified on the Analysis page.`
     }
   ]
 }

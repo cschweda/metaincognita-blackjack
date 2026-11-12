@@ -41,6 +41,24 @@ describe('AdvisorPanel', () => {
     expect(w.find('[data-testid="advisor-feedback"]').text()).toContain('$5.40')
   })
 
+  it('feedback names the count play when the miss was a deviation, not the book play just made', async () => {
+    const w = await mountSuspended(AdvisorPanel, {
+      props: {
+        intensity: 'feedback',
+        recommendation: null,
+        lastDecision: {
+          handIndex: 0, cards: ['10♠', '6♣'], total: 16, soft: false, pair: false, pairBucket: null,
+          upBucket: 10, dealerUp: '10♦', action: 'hit', book: 'hit', deviationId: '16vT-stand',
+          deviationPlay: 'stand', correct: false, costCents: 0, evs: {}, rc: 6, tc: 1, category: 'hard'
+        },
+        showSideBetCaution: false
+      }
+    })
+    const text = w.find('[data-testid="advisor-feedback"]').text()
+    expect(text).toContain('Stand')
+    expect(text).not.toContain('Book: Hit')
+  })
+
   it('exam mode stays silent and the caution renders when asked', async () => {
     const w = await mountSuspended(AdvisorPanel, {
       props: { intensity: 'exam', recommendation: REC, lastDecision: null, showSideBetCaution: true }

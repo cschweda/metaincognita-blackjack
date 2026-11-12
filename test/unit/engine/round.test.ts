@@ -656,3 +656,15 @@ describe('BlackjackGame — hole-card muck procedure', () => {
     expect(events.filter(e => e.type === 'hole-revealed')).toHaveLength(1)
   })
 })
+
+describe('Match the Dealer without a published pay table', () => {
+  it('takes no Match the Dealer action at one deck — there is no 1-deck table to pay from', () => {
+    const r = cloneRules(PRESETS.MA_205CMR!)
+    r.decks = 1
+    r.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: true, buster: 'off' }
+    // hero K♥ 5♣ against K♠ up: a one-card unsuited match, which the 6-deck column pays 4:1
+    const g = game([c(13, 'hearts'), c(13, 'spades'), c(5, 'clubs'), c(9, 'diamonds')], r)
+    g.beginRound([{ spotId: 0, mainBet: 1000, sideBets: { matchTheDealer: 100 } }])
+    expect(g.spots[0]!.sideBetResults).toEqual([])
+  })
+})

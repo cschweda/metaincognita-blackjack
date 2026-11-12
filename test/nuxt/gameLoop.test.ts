@@ -538,3 +538,29 @@ describe('useGameLoop (quick mode)', () => {
     expect(loop.outcomeLive.value).toBe('') // cleared so the next identical outcome re-announces
   })
 })
+
+describe('inPlay — money still at risk', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    __resetGameLoopForTests()
+    __resetCountingForTests()
+  })
+
+  it('stops counting a side bet once it has settled into the bankroll', () => {
+    // 21+3 settles on the deal. Its stake was still summed into "in play" for the rest of the
+    // round, so the same dollars showed up twice — once as a bankroll change and once as money
+    // at risk — and the insurance affordability check (bankroll − inPlay) refused a wager the
+    // player could cover.
+    const rules = cloneRules(PRESETS.VEGAS_STRIP_6D!)
+    rules.sideBets = { twentyOnePlusThree: 'MA-B', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
+    const loop = useGameLoop()
+    for (let seed = 1; seed < 50; seed++) {
+      loop.startSession(settings({ rules }), 100_000, seed)
+      loop.beginRound(1000, { twentyOnePlusThree: 500 })
+      if (loop.phase.value === 'playerTurns') break
+    }
+    expect(loop.phase.value).toBe('playerTurns')
+    expect(loop.inPlay.value).toBe(1000)
+  })
+})

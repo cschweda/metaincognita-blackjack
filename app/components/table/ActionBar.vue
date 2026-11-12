@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import type { Action } from '~/utils/engine/hand'
 import type { RuleSet } from '~/utils/engine/rules'
 import type { SideBetKind } from '~/utils/engine/round'
+import { matchTheDealerOffered } from '~/utils/engine/sideBets'
+import { formatCents } from '~/utils/format'
 
 const props = withDefaults(defineProps<{
   phase: 'betting' | 'insurance' | 'playerTurns' | 'complete'
@@ -38,7 +40,7 @@ const enabledSideBets = computed<Array<{ kind: SideBetKind, label: string }>>(()
   const out: Array<{ kind: SideBetKind, label: string }> = []
   if (props.rules.sideBets.twentyOnePlusThree !== 'off') out.push({ kind: 'twentyOnePlusThree', label: '21+3' })
   if (props.rules.sideBets.luckyLadies !== 'off') out.push({ kind: 'luckyLadies', label: 'Lucky Ladies' })
-  if (props.rules.sideBets.matchTheDealer) out.push({ kind: 'matchTheDealer', label: 'Match Dealer' })
+  if (props.rules.sideBets.matchTheDealer && matchTheDealerOffered(props.rules.decks)) out.push({ kind: 'matchTheDealer', label: 'Match Dealer' })
   if (props.rules.sideBets.buster !== 'off') out.push({ kind: 'buster', label: 'Buster' })
   return out
 })
@@ -199,7 +201,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
         class="text-xs text-amber-400"
         data-testid="bankroll-hint"
       >
-        That's more than your ${{ (bankroll / 100).toLocaleString() }} bankroll — clear some chips
+        That's more than your {{ formatCents(bankroll) }} bankroll — clear some chips
       </p>
     </template>
 

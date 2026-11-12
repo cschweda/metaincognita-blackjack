@@ -17,7 +17,7 @@ function settings(overrides: Partial<SessionSettings> = {}): SessionSettings {
   rules.sideBets = { twentyOnePlusThree: 'off', luckyLadies: 'off', matchTheDealer: false, buster: 'off' }
   return {
     rules, mode: 'quick', speed: 'normal', flair: false, botIds: [],
-    advisor: 'coach', count: 'self-check', advancedDeviations: true,
+    advisor: 'coach', count: 'shown', advancedDeviations: true,
     ...overrides
   } as SessionSettings
 }
@@ -103,5 +103,40 @@ describe('opt-in ramp bet hints at the table', () => {
     expect(loop.phase.value).toBe('complete')
     await page.vm.$nextTick()
     expect(page.find(HINT).exists()).toBe(true) // settled: size the NEXT bet
+  })
+
+  it('keeps the true count out of the hint in self-check mode, where the count is hidden on purpose', async () => {
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    loop.startSession(settings({ count: 'self-check' }), 100_000, 21)
+    store.setBetRamp({ ...DEFAULT_RAMP, steps: [...DEFAULT_RAMP.steps] }, true)
+
+    const page = await mountSuspended(TablePage)
+    expect(page.find(HINT).text()).toBe('Ramp: bet 1 unit ($25)')
+  })
+
+  it('sizes the bet for a fresh shoe once the cut card is out — the old count is dead', async () => {
+    // beginRound reshuffles when the cut card has been reached, so the count on screen between
+    // rounds belongs to a shoe the next hand will not be dealt from. The Lab's own model
+    // (bettingTc) bets TC 0 there; the table hint was sizing the bet on the dead count.
+    const store = useBlackjackStore()
+    const loop = useGameLoop()
+    const rules = cloneRules(PRESETS.SINGLE_DECK_65!)
+    rules.penetration = 0.5
+    loop.startSession(settings({ rules }), 1_000_000, 21)
+    store.setBetRamp({ ...DEFAULT_RAMP, steps: [...DEFAULT_RAMP.steps] }, true)
+    const page = await mountSuspended(TablePage)
+    let rounds = 0
+    while (!loop.shuffleDue.value && rounds++ < 30) {
+      loop.beginRound(1000, {})
+      if (loop.phase.value === 'insurance') loop.heroInsurance(null)
+      let guard = 0
+      while (loop.phase.value === 'playerTurns' && guard++ < 12) {
+        loop.act(loop.legalActions.value.includes('stand') ? 'stand' : loop.legalActions.value[0]!)
+      }
+    }
+    expect(loop.shuffleDue.value).toBe(true)
+    await page.vm.$nextTick()
+    expect(page.find(HINT).text()).toBe('Ramp: bet 1 unit ($25) — fresh shoe next, TC +0.0')
   })
 })

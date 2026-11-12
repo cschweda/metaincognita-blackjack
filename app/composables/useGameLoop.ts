@@ -479,6 +479,22 @@ function snapshotToStore(): void {
   } catch { /* snapshot unsupported (test shoe) — skip */ }
 }
 
+/**
+ * Money a spot still has riding: wagers that have not settled yet. Settled wagers are already in
+ * the bankroll (applyNet), so counting them here as well shows the same dollars twice.
+ *
+ * The affordability gate and the "In play" readout used to compute this separately and disagreed:
+ * the readout summed every side stake and any insurance for the whole round, settled or not, so
+ * `bankroll − inPlay` under-reported what the player could still put out.
+ */
+function atRisk(spot: SpotState): number {
+  const unresolvedBets = spot.hands.reduce((s, h) => s + (h.outcome === null ? h.bet : 0), 0)
+  const stakedSide = Object.values(spot.sideBets).reduce((s, v) => s + (v ?? 0), 0)
+  const settledSide = spot.sideBetResults.reduce((s, r) => s + r.stake, 0)
+  const pendingInsurance = spot.insuranceBet && spot.insuranceNet === 0 ? spot.insuranceBet : 0
+  return unresolvedBets + (stakedSide - settledSide) + pendingInsurance
+}
+
 // ── public api ───────────────────────────────────────────────────────────────
 function attach(g: BlackjackGame): void {
   unsubscribe?.()
@@ -515,11 +531,7 @@ export function useGameLoop() {
     if (!hand || (!acts.includes('double') && !acts.includes('split'))) return acts
     // Mid-round outlays are not escrowed (money only moves at settlement), so a double or
     // split must fit in what the bankroll has left after every stake still riding
-    const unresolvedBets = spot.hands.reduce((s, h) => s + (h.outcome === null ? h.bet : 0), 0)
-    const stakedSide = Object.values(spot.sideBets).reduce((s, v) => s + (v ?? 0), 0)
-    const settledSide = spot.sideBetResults.reduce((s, r) => s + r.stake, 0)
-    const pendingInsurance = spot.insuranceBet && spot.insuranceNet === 0 ? spot.insuranceBet : 0
-    const available = store.bankroll - unresolvedBets - (stakedSide - settledSide) - pendingInsurance
+    const available = store.bankroll - atRisk(spot)
     return acts.filter(a => (a !== 'double' && a !== 'split') || hand.bet <= available)
   })
   const canAct = computed(() => legalActions.value.length > 0)
@@ -530,9 +542,18 @@ export function useGameLoop() {
     if (!game || phase.value === 'complete' || phase.value === 'betting') return 0
     const spot = game.spots.find(s => s.spotId === heroSpot())
     if (!spot) return 0
-    const stakes = Object.values(spot.sideBets).reduce((s, v) => s + (v ?? 0), 0)
-    return spot.hands.reduce((s, h) => s + (h.outcome === null ? h.bet : 0), 0)
-      + stakes + (spot.insuranceBet ?? 0)
+    return atRisk(spot)
+  })
+  /**
+   * The cut card is out: the next deal comes from a fresh shoe (beginRound reshuffles first), so
+   * the count on screen describes cards that will not be dealt. Anything that sizes the NEXT bet
+   * must read this — the Bet Lab's bettingTc() already bets TC 0 here.
+   */
+  const shuffleDue = computed(() => {
+    void gameGen.value
+    void queueIdle.value
+    void phase.value
+    return !!game && (game.phase === 'complete' || game.phase === 'betting') && game.shoe.needsShuffle()
   })
   const heroTurn = computed(() => {
     void gameGen.value
@@ -710,7 +731,7 @@ export function useGameLoop() {
     decisionsThisRound.push(decision)
     lastDecision.value = decision
     if (store.settings!.advisor !== 'exam' && !decision.correct) {
-      pushAnnouncement(`Book: ${rec.action}${decision.costCents > 0 ? ` — that cost ≈$${(decision.costCents / 100).toFixed(2)}` : ''}`)
+      pushAnnouncement(`${rec.deviation ? 'Count call' : 'Book'}: ${rec.action}${decision.costCents > 0 ? ` — that cost ≈$${(decision.costCents / 100).toFixed(2)}` : ''}`)
     }
     game.act(heroSpot(), action)
     void pump()
@@ -756,7 +777,7 @@ export function useGameLoop() {
 
   return {
     phase, dealerRow, spotsView, announcements, liveText, outcomeLive, queueIdle, trayFill,
-    canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision,
+    canAct, legalActions, heroSpotId, inPlay, hasGame, heroTurn, lastDecision, shuffleDue,
     startSession, restoreSession, beginRound, act, heroInsurance, endSession, setExposeMuckedHole
   }
 }

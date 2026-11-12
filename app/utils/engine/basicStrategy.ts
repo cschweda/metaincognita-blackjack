@@ -337,16 +337,6 @@ export function actionEVs(state: TotalState, ctx: EvalContext): ActionEVs {
         || (rules.doubleOn === '10-11' && !state.soft && (state.total === 10 || state.total === 11))
     if (inRange) evs.double = doubleEV(state.total, state.soft, d, probs)
   }
-  // Half the wager, flat — which is exactly what round.ts settles, including under no-peek where
-  // a surrendered hand keeps its half whatever the hole turns out to be.
-  //
-  // Under no-peek this makes surrender look better than its rivals, because they are charged the
-  // dealer's natural through the unconditioned distribution and this is not — and the chart does
-  // then recommend surrendering small hard totals against an ace. That is a REAL bug, but fixing
-  // it means changing the settlement too (hold the wager like a blackjack, price it once the hole
-  // is known, per MA §8's escrow). Model and engine have to move together; pricing a full-wager
-  // loss the engine never takes would grade a correct surrender as a mistake and charge the
-  // player for it. It lands as its own change, with round.ts.
   if (state.twoCards && !state.fromSplit && rules.surrender === 'late') {
     // Half the wager back — unless a live natural can still take all of it. `d.blackjack` is 0
     // whenever a peek has already cleared it, so this collapses to a flat -0.5 at a peeking table

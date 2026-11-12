@@ -20,8 +20,10 @@ counting practice on rules taken from official gaming-commission documents, not 
 
 ## Features
 
-- **Five rulebook-cited presets + full custom editor** — MA 205 CMR, Bally's AC, WA card room,
-  Vegas Strip, single-deck 6:5; every preset shows its computed house edge (model estimate) —
+- **Five presets + a custom rules editor** — three built from rulebooks (MA 205 CMR, Bally's AC,
+  WA card room) and two generic benchmark games (Vegas Strip 6-deck, single-deck 6:5); the editor
+  covers the playing rules (its side bets and table limits are fixed);
+  every preset shows its computed house edge (model estimate) —
   deck-count aware, within a few hundredths of published tables from two decks up
   (2D 0.18% · 4D 0.35% · 6D 0.40% · 8D 0.43%) and about 0.15pp player-favourable at one deck,
   where it reads "~even" rather than inventing a sign it cannot resolve
@@ -103,8 +105,8 @@ earlier shuffles, and surveillance. The **MIT blackjack teams** ran the playbook
 shallow penetration, continuous shuffling machines, and — most expensively for the player —
 **6:5 blackjack payouts**, which first spread through Las Vegas single-deck games in the early
 2000s and add roughly 1.4% to the house edge. That arms race is exactly what this trainer
-simulates: every preset is built from a real rulebook, and the 6:5 single-deck preset exists
-to show you why the "good-looking" game is the worst one on the floor.
+simulates: three presets are built from real rulebooks, and the generic 6:5 single-deck preset
+exists to show you why the "good-looking" game is the worst one on the floor.
 
 ### Is Card Counting Still Viable?
 
@@ -187,7 +189,7 @@ felt.** The Learn page's rules lab lets you toggle any rule and watch the house 
 
 ## Rules Reference
 
-| Source | Type |
+| Source | File |
 |--------|------|
 | Massachusetts Gaming Commission, 205 CMR blackjack rules | `docs/Rules-Blackjack-10-08-2020.pdf` |
 | Bally's Atlantic City gaming guide | `docs/BLYS_AC-BlackJack-GamingGuide-4x9-Updated.pdf` |

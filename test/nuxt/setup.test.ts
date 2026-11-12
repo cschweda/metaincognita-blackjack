@@ -36,6 +36,16 @@ describe('RulesEditor', () => {
   })
 })
 
+describe('RulesEditor — rules the edge model does not price', () => {
+  it('says so when the five-card 21 bonus is on, instead of printing an unmoved edge as if it applied', async () => {
+    const rules = cloneRules(PRESETS.CUSTOM!)
+    const off = await mountSuspended(RulesEditor, { props: { modelValue: rules } })
+    expect(off.find('[data-testid="five-card-caveat"]').exists()).toBe(false)
+    const on = await mountSuspended(RulesEditor, { props: { modelValue: { ...rules, fiveCard21Pays2to1: true } } })
+    expect(on.find('[data-testid="five-card-caveat"]').exists()).toBe(true)
+  })
+})
+
 describe('BotPicker', () => {
   it('caps selection at max', async () => {
     const w = await mountSuspended(BotPicker, { props: { modelValue: [], max: 2 } })

@@ -1,5 +1,6 @@
 [build]
-  # CI gates merges (lint/typecheck/tests/coverage floors + e2e); deploys just build.
+  # Deploys just build. CI (lint/typecheck/tests/coverage floors + e2e) runs on pushes and PRs but
+  # nothing here waits for it — check the run is green before merging to main.
   command = "pnpm generate"
   publish = "dist"
 

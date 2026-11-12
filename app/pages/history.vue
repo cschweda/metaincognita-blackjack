@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { OUTCOME_BADGE } from '~/utils/outcomeBadges'
-import { pctEV } from '~/utils/advisor'
+import { advisedPlay, pctEV } from '~/utils/advisor'
 import { signedCents } from '~/utils/format'
 
 const store = useBlackjackStore()
@@ -108,7 +108,7 @@ function time(at: number): string {
             <span
               v-if="!d.correct"
               class="text-neutral-400"
-            >book: {{ d.book }}<template v-if="d.costCents > 0"> · cost ${{ (d.costCents / 100).toFixed(2) }}</template></span>
+            >{{ d.deviationPlay ? 'count' : 'book' }}: {{ advisedPlay(d) }}<template v-if="d.costCents > 0"> · cost ${{ (d.costCents / 100).toFixed(2) }}</template></span>
             <span
               v-if="d.deviationId"
               class="rounded bg-purple-900 px-1 text-[9px] uppercase text-purple-200"
