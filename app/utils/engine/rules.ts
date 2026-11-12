@@ -191,9 +191,13 @@ export function blackjackPayoutRatio(payout: BlackjackPayout): { num: number, de
 export function validateRuleSet(rules: RuleSet): string[] {
   const errors: string[] = []
   if (![1, 2, 4, 6, 8].includes(rules.decks)) errors.push('decks must be 1, 2, 4, 6 or 8 (MA §2(a))')
-  if (rules.penetration < 0.5 || rules.penetration > 0.9) errors.push('penetration must be between 0.5 and 0.9')
-  if (rules.minBet <= 0) errors.push('minBet must be positive')
-  if (rules.maxBet < rules.minBet) errors.push('minBet cannot exceed maxBet')
+  // Every comparison against NaN is false, so the range checks below let NaN straight through —
+  // and a rule set can arrive from localStorage, not only from the editor's bounded controls.
+  if (!Number.isFinite(rules.penetration) || rules.penetration < 0.5 || rules.penetration > 0.9) {
+    errors.push('penetration must be between 0.5 and 0.9')
+  }
+  if (!Number.isFinite(rules.minBet) || rules.minBet <= 0) errors.push('minBet must be positive')
+  if (!Number.isFinite(rules.maxBet) || rules.maxBet < rules.minBet) errors.push('minBet cannot exceed maxBet')
   if (rules.evenMoneyOffered && rules.blackjackPayout !== '3:2') {
     errors.push('evenMoneyOffered requires 3:2 blackjack payout (MA §7(d))')
   }

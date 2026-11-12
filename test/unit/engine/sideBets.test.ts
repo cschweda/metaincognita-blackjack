@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  evaluate21Plus3, evaluateLuckyLadies, evaluateMatchTheDealer, evaluateBuster
+  evaluate21Plus3, evaluateLuckyLadies, evaluateMatchTheDealer, evaluateBuster, matchTheDealerOffered
 } from '../../../app/utils/engine/sideBets'
 import type { Card, Suit } from '../../../app/utils/engine/cards'
 
@@ -98,5 +98,13 @@ describe('Buster (MA §27)', () => {
     expect(evaluateBuster(bust3, false, 'A').payoutMultiplier).toBe(2)
     expect(evaluateBuster(bust5, false, 'A').payoutMultiplier).toBe(4)
     expect(evaluateBuster(bust6, false, 'A').payoutMultiplier).toBe(15)
+  })
+})
+
+describe('Match the Dealer availability', () => {
+  it('is offered only at deck counts the rulebook publishes a pay table for', () => {
+    // MA §23(f) prints tables for 2, 4, 6 and 8 decks. One deck has none, and paying it from the
+    // 6-deck column invented a wager no rulebook describes.
+    expect([1, 2, 4, 6, 8].map(matchTheDealerOffered)).toEqual([false, true, true, true, true])
   })
 })

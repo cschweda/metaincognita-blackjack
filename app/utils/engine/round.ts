@@ -10,7 +10,7 @@ import type { GameSnapshot } from './serializeTypes'
 import { SNAPSHOT_VERSION } from './serializeTypes'
 import { blackjackPayoutRatio, cloneRules } from './rules'
 import {
-  evaluate21Plus3, evaluateBuster, evaluateLuckyLadies, evaluateMatchTheDealer
+  evaluate21Plus3, evaluateBuster, evaluateLuckyLadies, evaluateMatchTheDealer, matchTheDealerOffered
 } from './sideBets'
 import type { SideBetId, SideBetResult } from './sideBets'
 
@@ -203,7 +203,7 @@ export class BlackjackGame {
         this.recordSideBet(spot, result, stake213)
       }
       const stakeMtd = spot.sideBets.matchTheDealer ?? 0
-      if (stakeMtd > 0 && this.rules.sideBets.matchTheDealer) {
+      if (stakeMtd > 0 && this.rules.sideBets.matchTheDealer && matchTheDealerOffered(this.rules.decks)) {
         const result = evaluateMatchTheDealer(pair, this.dealerUp!, this.rules.decks)
         this.recordSideBet(spot, result, stakeMtd)
       }
