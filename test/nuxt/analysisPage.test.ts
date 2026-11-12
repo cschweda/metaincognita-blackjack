@@ -23,7 +23,7 @@ describe('analysis page', () => {
     const store = useBlackjackStore()
     store.clearAll()
     const w = await mountSuspended(AnalysisPage)
-    expect(w.find('[data-testid="adherence-overall"]').text()).toBe('0%')
+    expect(w.find('[data-testid="adherence-overall"]').text()).toBe('—') // no decisions is not 0%
     expect(w.text()).toContain('Clean sheet')
   })
 })

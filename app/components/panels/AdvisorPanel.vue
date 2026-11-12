@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { AdvisorRecommendation, RoundSummary } from '~/utils/advisor'
 import { advisedPlay, pctEV } from '~/utils/advisor'
+import { formatCents, signedCents } from '~/utils/format'
 import type { AdvisorIntensity, DecisionRecord } from '~/stores/useBlackjackStore'
 import type { Action } from '~/utils/engine/hand'
 
@@ -26,12 +27,6 @@ const summaryClass = computed(() => {
   if (s.netCents < 0) return 'text-red-400'
   return 'text-neutral-200'
 })
-
-function signed(cents: number): string {
-  const abs = Math.abs(cents) / 100
-  const formatted = abs.toLocaleString(undefined, { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })
-  return `${cents > 0 ? '+' : cents < 0 ? '−' : '±'}$${formatted}`
-}
 
 const ACTION_LABEL: Record<Action, string> = {
   hit: 'Hit', stand: 'Stand', double: 'Double', split: 'Split', surrender: 'Surrender'
@@ -84,7 +79,7 @@ const open = ref(true) // collapsible (spec §6)
           class="mt-1 font-mono text-neutral-300"
           data-testid="advisor-bankroll"
         >
-          Bankroll {{ signed(roundSummary.netCents) }} → ${{ (bankrollCents / 100).toLocaleString() }}
+          Bankroll {{ signedCents(roundSummary.netCents) }} → {{ formatCents(bankrollCents ?? 0) }}
         </p>
         <ul
           v-if="intensity !== 'exam' && roundSummary.moments.length"
@@ -157,7 +152,7 @@ const open = ref(true) // collapsible (spec §6)
             class="font-semibold text-red-400"
           >
             ✗ {{ lastDecision.deviationPlay ? 'Count call' : 'Book' }}: {{ ACTION_LABEL[advisedPlay(lastDecision)] }}
-            <span v-if="lastDecision.costCents > 0"> — cost ≈${{ (lastDecision.costCents / 100).toFixed(2) }}</span>
+            <span v-if="lastDecision.costCents > 0"> — cost ≈{{ formatCents(lastDecision.costCents, 2) }}</span>
           </p>
         </div>
         <p

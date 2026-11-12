@@ -4,7 +4,7 @@ import {
   heroPnlCents, sideBetLedger, topMistakes
 } from '~/utils/analysis'
 import { PERSONAS } from '~/utils/engine/bots'
-import { signedCents } from '~/utils/format'
+import { formatCents, signedCents } from '~/utils/format'
 
 const store = useBlackjackStore()
 onMounted(() => {
@@ -15,8 +15,13 @@ const rows = computed(() => adherenceRows(store.training))
 const overall = computed(() => {
   const d = rows.value.reduce((s, r) => s + r.decisions, 0)
   const c = rows.value.reduce((s, r) => s + r.correct, 0)
-  return { decisions: d, pct: d === 0 ? 0 : Math.round((c / d) * 100) }
+  return { decisions: d, pct: d === 0 ? null : Math.round((c / d) * 100) }
 })
+/** History keeps the most recent rounds only, so past the cap the session figures below describe
+ *  a window, not the whole session — say which. */
+const sessionScope = computed(() => store.session.roundsPlayed > store.history.length
+  ? `last ${store.history.length} of ${store.session.roundsPlayed} rounds`
+  : 'this session')
 const mistakes = computed(() => topMistakes(store.training.mistakeBag))
 const evLost = computed(() => evLostCents(store.history))
 const pnl = computed(() => heroPnlCents(store.history))
@@ -58,10 +63,10 @@ function money(cents: number): string {
           class="mt-1 text-2xl font-bold text-[var(--accent-gold)]"
           data-testid="adherence-overall"
         >
-          {{ overall.pct }}%
+          {{ overall.pct === null ? '—' : `${overall.pct}%` }}
         </p>
         <p class="text-xs text-neutral-400">
-          {{ overall.decisions }} graded decisions
+          {{ overall.decisions }} graded decisions · all time
         </p>
       </div>
       <div class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
@@ -69,10 +74,13 @@ function money(cents: number): string {
           EV lost to mistakes
         </p>
         <p class="mt-1 text-2xl font-bold text-red-400">
-          ${{ (evLost / 100).toFixed(2) }}
+          {{ formatCents(evLost, 2) }}
         </p>
-        <p class="text-xs text-neutral-400">
-          vs actual P&L {{ money(pnl) }} — variance is loud, mistakes are quiet
+        <p
+          class="text-xs text-neutral-400"
+          data-testid="ev-scope"
+        >
+          {{ sessionScope }} · vs actual P&L {{ money(pnl) }} — variance is loud, mistakes are quiet
         </p>
       </div>
       <div class="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
@@ -83,7 +91,7 @@ function money(cents: number): string {
           {{ counts.total === 0 ? '—' : `${Math.round((counts.exact / counts.total) * 100)}%` }}
         </p>
         <p class="text-xs text-neutral-400">
-          {{ counts.total }} checks · {{ counts.withinOne }} within ±1
+          {{ counts.total }} checks · {{ counts.withinOne }} within ±1 · all time, table and drills
         </p>
         <p
           v-if="counts.total > 10"
@@ -155,7 +163,7 @@ function money(cents: number): string {
           />
         </svg>
         <p class="text-xs text-neutral-400">
-          {{ store.history.length }} rounds · now ${{ (store.bankroll / 100).toLocaleString() }}
+          {{ sessionScope }} · now {{ formatCents(store.bankroll) }}
         </p>
       </div>
     </section>
@@ -182,7 +190,7 @@ function money(cents: number): string {
             >
               <td>{{ row.name }}</td>
               <td class="text-right font-mono">
-                staked ${{ (row.staked / 100).toLocaleString() }}
+                staked {{ formatCents(row.staked) }}
               </td>
               <td
                 class="text-right font-mono"

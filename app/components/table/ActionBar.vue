@@ -4,6 +4,7 @@ import type { Action } from '~/utils/engine/hand'
 import type { RuleSet } from '~/utils/engine/rules'
 import type { SideBetKind } from '~/utils/engine/round'
 import { matchTheDealerOffered } from '~/utils/engine/sideBets'
+import { formatCents } from '~/utils/format'
 
 const props = withDefaults(defineProps<{
   phase: 'betting' | 'insurance' | 'playerTurns' | 'complete'
@@ -200,7 +201,7 @@ defineExpose({ mainBet, sideStakes, addChip, clearBets, rebet, deal })
         class="text-xs text-amber-400"
         data-testid="bankroll-hint"
       >
-        That's more than your ${{ (bankroll / 100).toLocaleString() }} bankroll — clear some chips
+        That's more than your {{ formatCents(bankroll) }} bankroll — clear some chips
       </p>
     </template>
 
