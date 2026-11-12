@@ -112,6 +112,14 @@ const spotsOptions = [7, 9].map(v => ({ label: `${v} spots`, value: v }))
       No-peek here is NOT European no-hole-card: the dealer still takes (and uses) a hole card;
       doubles and splits lose in full to a dealer blackjack.
     </p>
+    <p
+      v-if="rules.fiveCard21Pays2to1"
+      class="text-xs text-amber-400"
+      data-testid="five-card-caveat"
+    >
+      The table pays the five-card 21 bonus, but the house-edge figure and the strategy chart do
+      not price it — the real game is slightly better for the player than the number shown.
+    </p>
     <ul
       v-if="errors.length"
       class="space-y-1 text-xs text-red-400"
