@@ -160,20 +160,22 @@ const NATIVE_SPACE = 'button, a[href], summary, [role="button"], [role="switch"]
  * activated. The page shortcut used to take it regardless and deal the armed bet — so tabbing to
  * Clear, a chip, Study, or the Keys toggle itself and pressing Space dealt a round instead.
  *
- * A control focused by a mouse click does not count (:focus-visible is false for it), so the
- * common "click chips, hit Space to deal" flow is unchanged.
+ * A control focused by a mouse click does not count, so the common "click chips, hit Space to
+ * deal" flow is unchanged. The modality is tracked here rather than read from :focus-visible:
+ * Chromium turns :focus-visible on for the focused element as soon as ANY key goes down, so by
+ * the time a keydown handler asks, a mouse-focused chip already reports true (caught by the
+ * keyboard e2e spec — the unit environment cannot see it).
  */
+let focusMovedByKeyboard = false
+function onPointerDown(): void {
+  focusMovedByKeyboard = false
+}
 function spaceBelongsToControl(el: HTMLElement | null): boolean {
-  const control = el?.closest?.(NATIVE_SPACE)
-  if (!control) return false
-  try {
-    return control.matches(':focus-visible')
-  } catch {
-    return true // no :focus-visible support — assume the keyboard, the safe reading
-  }
+  return focusMovedByKeyboard && !!el?.closest?.(NATIVE_SPACE)
 }
 
 function onKey(e: KeyboardEvent): void {
+  if (e.key === 'Tab') focusMovedByKeyboard = true
   if (!store.training.keyboardShortcuts) return // WCAG 2.1.4: single-key shortcuts are optional
   if (studyMode.value) return
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
@@ -195,8 +197,14 @@ function onKey(e: KeyboardEvent): void {
     onAct(KEYS[key]!)
   }
 }
-onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('pointerdown', onPointerDown, true)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  window.removeEventListener('pointerdown', onPointerDown, true)
+})
 </script>
 
 <template>

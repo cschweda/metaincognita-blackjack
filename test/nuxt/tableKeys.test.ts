@@ -45,9 +45,14 @@ describe('table keyboard shortcuts', () => {
     const page = await mountSuspended(TablePage, { attachTo: document.body })
     await page.find('[data-testid="chip-2500"]').trigger('click')
     const chip = page.find('[data-testid="chip-500"]').element as HTMLElement
+    press(document.body, 'Tab') // the user tabbed here
     chip.focus()
     press(chip, ' ')
     expect(loop.phase.value).toBe('betting')
+    // …and the same chip reached with the mouse still lets Space deal
+    window.dispatchEvent(new Event('pointerdown'))
+    press(chip, ' ')
+    expect(loop.phase.value).not.toBe('betting')
     page.unmount()
   })
 
