@@ -31,7 +31,8 @@ const STEP_LABELS = ['TC ≤ 0', 'TC +1', 'TC +2', 'TC +3', 'TC +4', 'TC ≥ +5'
 const unitDollars = computed({
   get: () => ramp.unitCents / 100,
   set: (v) => {
-    if (typeof v === 'number' && !Number.isNaN(v) && v > 0) ramp.unitCents = Math.round(v * 100)
+    // at least one whole cent: 0.004 rounded to a unit of 0 and the table hint divided by it
+    if (typeof v === 'number' && Number.isFinite(v) && Math.round(v * 100) >= 1) ramp.unitCents = Math.round(v * 100)
   }
 })
 const bankrollDollars = computed({
@@ -104,7 +105,14 @@ function handleWorkerError(): void {
     requestFreqs()
   }
   if (simulating.value) {
-    simResult.value = simulateTrajectories(simParams())
+    // same run, same seed, on the main thread. If the failure came from the simulation rather
+    // than from loading the worker it will throw again here — never leave the page stuck
+    // "simulating" with a Cancel button that has nothing to cancel
+    try {
+      simResult.value = lastParams ? simulateTrajectories(lastParams) : null
+    } catch {
+      simResult.value = null
+    }
     simulating.value = false
   }
 }
@@ -170,15 +178,28 @@ const simTrajectories = ref(500)
 const simulating = ref(false)
 const simProgress = ref(0)
 const simResult = ref<SimResult | null>(null)
+/** What the displayed result actually ran with. The result card reads THIS, never the live
+ *  inputs — editing a field after a run must not relabel a chart computed from other numbers. */
+const simRan = ref<{ rounds: number, trajectories: number, bankrollCents: number } | null>(null)
+let lastParams: ReturnType<typeof simParams> | null = null
+
+/** Bounds on a run. The floor keeps the fan chart meaningful; the ceiling keeps a typo (an extra
+ *  few zeros) from pinning a core for minutes or exhausting memory holding every trajectory. */
+const SIM_ROUNDS = { min: 40, max: 20_000, fallback: 840 }
+const SIM_TRAJECTORIES = { min: 10, max: 5_000, fallback: 500 }
+function clampInput(v: unknown, b: { min: number, max: number, fallback: number }): number {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.min(b.max, Math.max(b.min, Math.round(v))) : b.fallback
+}
 
 function simParams() {
+  const rounds = clampInput(simRounds.value, SIM_ROUNDS)
   return {
     rules: rules.value,
     ramp: JSON.parse(JSON.stringify(ramp)) as BetRamp,
-    rounds: Math.max(40, Math.round(simRounds.value)),
-    trajectories: Math.max(10, Math.round(simTrajectories.value)),
+    rounds,
+    trajectories: clampInput(simTrajectories.value, SIM_TRAJECTORIES),
     seed: randomSeed(),
-    sampleEvery: Math.max(1, Math.round(Math.max(40, simRounds.value) / 40))
+    sampleEvery: Math.max(1, Math.round(rounds / 40))
   }
 }
 
@@ -186,12 +207,15 @@ function simulate(): void {
   simResult.value = null
   simProgress.value = 0
   simulating.value = true
+  const params = simParams()
+  lastParams = params
+  simRan.value = { rounds: params.rounds, trajectories: params.trajectories, bankrollCents: params.ramp.bankrollCents }
   const w = ensureWorker()
   if (w) {
     simRunId++
-    w.postMessage({ type: 'simulate', id: simRunId, params: simParams() })
+    w.postMessage({ type: 'simulate', id: simRunId, params })
   } else {
-    simResult.value = simulateTrajectories(simParams())
+    simResult.value = simulateTrajectories(params)
     simulating.value = false
   }
 }
@@ -331,6 +355,7 @@ onBeforeUnmount(() => {
             v-model.number="simRounds"
             type="number"
             min="40"
+            max="20000"
             data-testid="lab-sim-rounds"
           />
         </UFormField>
@@ -339,6 +364,7 @@ onBeforeUnmount(() => {
             v-model.number="simTrajectories"
             type="number"
             min="10"
+            max="5000"
             data-testid="lab-sim-traj"
           />
         </UFormField>
@@ -368,14 +394,14 @@ onBeforeUnmount(() => {
       />
 
       <div
-        v-if="simResult"
+        v-if="simResult && simRan"
         class="space-y-3"
         data-testid="lab-sim-result"
       >
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
             <p class="text-xs uppercase tracking-wide text-neutral-400">
-              Went broke within {{ simRounds.toLocaleString() }} rounds
+              Went broke within {{ simRan.rounds.toLocaleString() }} rounds
             </p>
             <p
               class="font-mono text-lg font-bold"
@@ -386,7 +412,7 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <p class="text-xs uppercase tracking-wide text-neutral-400">
-              Closed form (no time limit)
+              Closed form (no time limit, current ramp)
             </p>
             <p class="font-mono text-lg font-bold text-neutral-300">
               {{ stats ? (stats.ruin * 100).toFixed(1) : '—' }}%
@@ -404,10 +430,10 @@ onBeforeUnmount(() => {
 
         <FanChart
           :bands="simResult.bands"
-          :start-cents="ramp.bankrollCents"
+          :start-cents="simRan.bankrollCents"
         />
         <p class="text-[10px] text-neutral-400">
-          {{ simTrajectories }} lifetimes × {{ simRounds }} rounds through the real engine — seeded
+          {{ simRan.trajectories.toLocaleString() }} lifetimes × {{ simRan.rounds.toLocaleString() }} rounds through the real engine — seeded
           shoes, basic strategy, live Hi-Lo count, your ramp. Gold line: median bankroll. Bands:
           25–75th and 5–95th percentiles. Dashed: starting bankroll. Red: broke. If the closed
           form looks scarier than the simulation, that is the lesson: ruin needs time — raise the

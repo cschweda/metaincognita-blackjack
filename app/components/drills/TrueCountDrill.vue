@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isEnteredNumber } from '~/utils/format'
+
 const props = withDefaults(defineProps<{
   rng?: () => number
 }>(), { rng: () => Math.random() })

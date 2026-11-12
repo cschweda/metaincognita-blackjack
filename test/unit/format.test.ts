@@ -31,4 +31,3 @@ describe('isEnteredNumber', () => {
     expect(['', '-', null, undefined, Number.NaN, Number.POSITIVE_INFINITY].some(isEnteredNumber)).toBe(false)
   })
 })
-
