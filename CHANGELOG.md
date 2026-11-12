@@ -7,6 +7,41 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: Se
 
 ### Fixed
 
+- **Full-app audit, 2026-11-12** — engine, advisor, persistence, table, drills, Bet Lab, CI.
+  - **Advisor reporting.** Decisions are graded against the count-aware play, but the feedback
+    panel, round recap, history row and live announcement printed the pure-book play — a player who
+    hit 16 v 10 and missed the count stand was told "Book: Hit". All four now name the play the
+    decision was graded on. A deviation that merely restates the book (3-card 15 v 10; 11 v A under
+    H17) is no longer badged a count call, and a missed count call no longer enters the
+    basic-strategy mistake bag.
+  - **Learn and the Deviation Quiz** read one list of the deviations that are real under the active
+    rules, with the governing index. The Learn table had printed "Stand 16 v 10 at TC ≥ 0" on
+    late-surrender presets where the advisor grades against +4, and listed Fab 4 plays on tables
+    with no surrender.
+  - **Saved data is validated by shape, not just version.** A null adherence bucket made every
+    table action throw; a malformed bet ramp or history row 500'd a route on every visit; settings
+    of `{}` left an "active" session with no rules; a damaged round snapshot restored and then
+    threw during render. Training is repaired field by field, settings must hold a valid rule set,
+    and a bad snapshot now falls back to a fresh shoe.
+  - **Table.** Space on a keyboard-focused control activates that control instead of dealing;
+    focus moves to Deal when a round settles; the ramp hint sizes for a fresh shoe once the cut
+    card is out and prints the exact count only when the count is shown; "In play" no longer
+    counts side bets and insurance that have already settled.
+  - **Engine.** Match the Dealer is offered only at deck counts with a published pay table (it was
+    paid from the 6-deck column at one deck); `validateRuleSet` rejects NaN/Infinity; the rules
+    editor says the five-card 21 bonus is not priced by the edge figure or the chart.
+  - **Drills.** An emptied number input is no longer graded (the true-count drill marked a blank
+    correct near zero); a replayed mistake answered correctly is worked off the bag, which
+    previously only grew; a soft-12 replay rendered a blank rank-1 card.
+  - **Bet Lab.** Simulation inputs are bounded, a unit under one cent is refused, and the result
+    card is labelled with the parameters it ran with rather than the live inputs.
+  - **Analysis** labels lifetime versus this-session figures and names the 500-round window.
+  - **CI** pins `ubuntu-24.04` (Playwright 1.60 cannot install on the 26.04 `ubuntu-latest`, so
+    e2e had been red on `main` since 2026-11-05), runs on `staging`, and uploads `test-results/`.
+  - **Docs.** README and Learn no longer claim every preset comes from a rulebook — three do.
+  - **Dependencies.** In-range update (nuxt 4.6.4, @nuxt/ui 4.12): `pnpm audit` 100 → 8, none
+    critical; the remainder is test- or build-only.
+
 - **A no-peek surrender was priced as a free pass.** Under no-peek the dealer's natural is charged
   to every action through the unconditioned distribution — except surrender, which settled at a
   flat half whatever the hole turned out to be. Surrender escaped a loss its rivals paid, so the
